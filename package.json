@@ -1,0 +1,19 @@
+{
+  "name": "rutalog-api",
+  "version": "1.0.0",
+  "description": "API REST de RutaLog Perú (Node.js + Express + PostgreSQL en Neon)",
+  "private": true,
+  "main": "api/index.js",
+  "scripts": {
+    "start": "node servidor-local.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.13.1"
+  }
+}
