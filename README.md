@@ -60,6 +60,16 @@ La API crea las tablas y los datos de ejemplo sola la primera vez que se usa: 3 
 
 Cualquier petición con el encabezado `X-Simular-Error: 1` recibe `503`. La app lo usa desde su pantalla de sincronización para demostrar que no pierde datos cuando el servidor falla.
 
+## Prueba de conflicto
+
+El script `pruebas/simular-conflicto.ps1` simula que el cliente dueño de un envío le cambia el peso mientras el operador tiene un cambio sin enviar para ese mismo envío. Así sube la versión en el servidor y el cambio del operador se rechaza con `409 VERSION_DESACTUALIZADA`.
+
+```
+powershell -ExecutionPolicy Bypass -File pruebas\simular-conflicto.ps1 -Guia "RLP-26-300025-0"
+```
+
+Solo funciona con envíos que sigan `pendiente` en el servidor.
+
 ## Publicar en Vercel
 
 1. Subir este proyecto a un repositorio de GitHub.
