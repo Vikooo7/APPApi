@@ -119,6 +119,42 @@ function conflicto(codigo, mensaje, envio) {
   return e;
 }
 
+const ETIQUETAS = {
+  pendiente: 'pendiente de recojo',
+  recogido: 'recogido',
+  en_transito: 'en tránsito',
+  en_reparto: 'en reparto',
+  entregado: 'entregado'
+};
+
+/**
+ * Reglas del administrador al cambiar estado y transportista (RF08 y RF09).
+ * Son las mismas que aplica la App Operador antes de guardar; el servidor las repite
+ * porque un cambio hecho sin conexión puede llegar cuando el envío ya avanzó.
+ */
+function validarCambioAdministrador(envio, estado, transportista) {
+  if (!ESTADOS.includes(estado)) {
+    throw error(422, 'ESTADO_INVALIDO', 'El estado indicado no existe.');
+  }
+  if (envio.estado === 'entregado') {
+    throw conflicto(
+      'ENVIO_CERRADO',
+      'El envío ya fue entregado: su estado y transportista no se pueden cambiar.',
+      envio
+    );
+  }
+  if (ESTADOS.indexOf(estado) < ESTADOS.indexOf(envio.estado)) {
+    throw conflicto(
+      'ESTADO_NO_RETROCEDE',
+      `El estado solo puede avanzar: el envío ya está ${ETIQUETAS[envio.estado]}.`,
+      envio
+    );
+  }
+  if (estado !== 'pendiente' && !transportista) {
+    throw error(422, 'SIN_TRANSPORTISTA', 'Asigna un transportista antes de cambiar el estado.');
+  }
+}
+
 /** GET /api/envios → el cliente recibe solo sus envíos; el administrador, todos. */
 rutasEnvios.get('/', async (req, res, next) => {
   try {
@@ -238,13 +274,8 @@ rutasEnvios.put('/:id', (req, res, next) => {
     let actualizado;
     if (esAdministrador(req)) {
       const estado = req.body?.estado ?? envio.estado;
-      if (!ESTADOS.includes(estado)) {
-        throw error(422, 'ESTADO_INVALIDO', 'El estado indicado no existe.');
-      }
       const transportista = req.body?.transportistaAsignado ?? envio.transportista_asignado;
-      if (estado !== 'pendiente' && !transportista) {
-        throw error(422, 'SIN_TRANSPORTISTA', 'Asigna un transportista antes de cambiar el estado.');
-      }
+      validarCambioAdministrador(envio, estado, transportista);
       actualizado = await bd.query(
         `UPDATE envios SET estado = $1, transportista_asignado = $2, version = version + 1, actualizado_en = NOW()
          WHERE id = $3 RETURNING *`,
@@ -293,4 +324,4 @@ rutasEnvios.delete('/:id', (req, res, next) => {
   });
 });
 
-module.exports = { rutasEnvios };
+module.exports = { rutasEnvios, validarCambioAdministrador };

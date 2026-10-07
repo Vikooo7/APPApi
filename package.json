@@ -5,7 +5,8 @@
   "private": true,
   "main": "api/index.js",
   "scripts": {
-    "start": "node servidor-local.js"
+    "start": "node servidor-local.js",
+    "test": "node --test"
   },
   "engines": {
     "node": ">=20"

@@ -32,9 +32,12 @@ Las rutas con sesión exigen el encabezado `Authorization: Bearer <token>`.
 - **Peso:** debe ser mayor que 0 y como máximo 30 000 kg (`422`).
 - **Costo:** lo calcula la API (`pesoKg × tarifaPorKg` de la ruta); no se confía en el que envíe la app.
 - **Duplicados (RF15):** cada escritura lleva un `uuidOperacion`. Si llega repetido, la API devuelve la respuesta guardada con `"duplicado": true` y no repite el cambio. Además, `envios.uuid` es único.
+- **Administrador (estado y transportista):** fuera de `pendiente`, el envío debe tener transportista (`422 SIN_TRANSPORTISTA`).
 - **Conflictos (`409`):**
   - `ENVIO_NO_EDITABLE`: el cliente intenta cambiar o eliminar un envío que ya fue recogido.
   - `VERSION_DESACTUALIZADA`: el envío cambió en el servidor después de la última sincronización.
+  - `ESTADO_NO_RETROCEDE`: el administrador intenta volver a un estado anterior.
+  - `ENVIO_CERRADO`: el administrador intenta cambiar un envío ya entregado.
   - La respuesta incluye `envio`, con el estado real en el servidor.
 - **Número de guía:** se respeta el que generó la app si está libre; si ya existe, la API asigna otro.
 
@@ -47,7 +50,9 @@ Las rutas con sesión exigen el encabezado `Authorization: Bearer <token>`.
 ## Base de datos remota
 
 Tablas: `usuarios`, `rutas`, `envios` y `operaciones_procesadas`. El esquema está en [db/esquema.sql](db/esquema.sql).
-La API crea las tablas y los datos de ejemplo sola la primera vez que se usa.
+La API crea las tablas y los datos de ejemplo sola la primera vez que se usa: 3 usuarios, 27 rutas y 40 envíos (10 iniciales y 30 adicionales, para que la App Operador consulte más de 30).
+
+**Pruebas:** `npm test` revisa las reglas del administrador y los datos de ejemplo.
 
 **Cuentas de ejemplo** (clave `1234`): `cliente@rutalog.pe`, `cliente2@rutalog.pe` y `operador@rutalog.pe` (administrador).
 

@@ -96,6 +96,47 @@ const ENVIOS = [
   ['cliente2@rutalog.pe', 'Lima → Puno', 90, 'en_transito', 'Yeni Mamani Choque · Z9P-640']
 ];
 
+// RF06 de la App Operador: debe consultar al menos 30 envíos. Estos 30 se agregan una sola vez,
+// también a las bases que ya tenían los 10 de arriba; con ellos el servidor llega a 40.
+// Mismo orden: correo del dueño, ruta, peso (kg), estado, transportista.
+const ENVIOS_ADICIONALES = [
+  ['cliente@rutalog.pe', 'Lima → Arequipa', 64, 'pendiente', null],
+  ['cliente2@rutalog.pe', 'Lima → Trujillo', 150, 'recogido', 'Jorge Castillo Vega · T2L-771'],
+  ['cliente@rutalog.pe', 'Lima → Cusco', 42.5, 'en_transito', 'Percy Ccahuana Huillca · V8K-125'],
+  ['cliente2@rutalog.pe', 'Lima → Piura', 210, 'en_reparto', 'Lucía Flores Ramos · C5H-903'],
+  ['cliente@rutalog.pe', 'Lima → Huancayo', 12, 'entregado', 'Milagros Rojas Pérez · F7R-318'],
+  ['cliente2@rutalog.pe', 'Lima → Chiclayo', 95, 'en_transito', 'Hilda Sánchez Paredes · M1N-447'],
+  ['cliente@rutalog.pe', 'Lima → Tacna', 330, 'pendiente', null],
+  ['cliente2@rutalog.pe', 'Lima → Ica', 27.5, 'entregado', 'Rosa Huamán Torres · BFK-209'],
+  ['cliente@rutalog.pe', 'Lima → Puno', 180, 'recogido', 'Yeni Mamani Choque · Z9P-640'],
+  ['cliente2@rutalog.pe', 'Lima → Tarapoto', 75, 'en_transito', 'Edwin Tapullima Sangama · U4S-218'],
+  ['cliente@rutalog.pe', 'Lima → Pucallpa', 56, 'en_reparto', 'Edwin Tapullima Sangama · U4S-218'],
+  ['cliente2@rutalog.pe', 'Lima → Cajamarca', 140, 'pendiente', null],
+  ['cliente@rutalog.pe', 'Lima → Ayacucho', 33, 'entregado', 'Jorge Castillo Vega · T2L-771'],
+  ['cliente2@rutalog.pe', 'Arequipa → Puno', 88, 'en_transito', 'Carlos Quispe Mamani · AQP-482'],
+  ['cliente@rutalog.pe', 'Lima → Iquitos', 24, 'recogido', 'Edwin Tapullima Sangama · U4S-218'],
+  ['cliente2@rutalog.pe', 'Lima → Arequipa', 410, 'en_reparto', 'Carlos Quispe Mamani · AQP-482'],
+  ['cliente@rutalog.pe', 'Lima → Trujillo', 19.5, 'pendiente', null],
+  ['cliente2@rutalog.pe', 'Lima → Cusco', 260, 'entregado', 'Wilber Condori Apaza · X3C-560'],
+  ['cliente@rutalog.pe', 'Lima → Piura', 70, 'en_transito', 'Lucía Flores Ramos · C5H-903'],
+  ['cliente2@rutalog.pe', 'Lima → Huancayo', 48, 'pendiente', null],
+  ['cliente@rutalog.pe', 'Lima → Chiclayo', 125, 'recogido', 'Hilda Sánchez Paredes · M1N-447'],
+  ['cliente2@rutalog.pe', 'Lima → Tacna', 36, 'en_transito', 'Yeni Mamani Choque · Z9P-640'],
+  ['cliente@rutalog.pe', 'Lima → Ica', 290, 'en_reparto', 'Rosa Huamán Torres · BFK-209'],
+  ['cliente2@rutalog.pe', 'Lima → Puno', 14, 'entregado', 'Percy Ccahuana Huillca · V8K-125'],
+  ['cliente@rutalog.pe', 'Lima → Tarapoto', 160, 'pendiente', null],
+  ['cliente2@rutalog.pe', 'Lima → Pucallpa', 52, 'recogido', 'Hilda Sánchez Paredes · M1N-447'],
+  ['cliente@rutalog.pe', 'Lima → Cajamarca', 230, 'en_transito', 'Jorge Castillo Vega · T2L-771'],
+  ['cliente2@rutalog.pe', 'Lima → Ayacucho', 66, 'en_reparto', 'Milagros Rojas Pérez · F7R-318'],
+  ['cliente@rutalog.pe', 'Arequipa → Puno', 21, 'entregado', 'Carlos Quispe Mamani · AQP-482'],
+  ['cliente2@rutalog.pe', 'Lima → Iquitos', 110, 'pendiente', null]
+];
+
+/** UUID fijo de cada envío adicional: permite saber si ya se agregó y no repetirlo. */
+function uuidAdicional(numero) {
+  return `00000000-0000-4000-8000-${String(numero).padStart(12, '0')}`;
+}
+
 /** Guía RLP-AA-NNNNNN-D: el mismo formato que usa la app (NumeroGuia.kt). */
 function generarGuia(correlativo, fecha = new Date()) {
   const base = String(correlativo);
@@ -114,35 +155,66 @@ async function crearEsquema() {
     }
 
     const { rows } = await bd.query('SELECT COUNT(*)::int AS total FROM usuarios');
-    if (rows[0].total > 0) return;
-
-    for (const [nombre, correo, clave, rol] of USUARIOS) {
-      await bd.query(
-        'INSERT INTO usuarios (nombre, correo, clave_hash, rol) VALUES ($1, $2, $3, $4)',
-        [nombre, correo, bcrypt.hashSync(clave, 10), rol]
-      );
+    if (rows[0].total === 0) {
+      await insertarDatosBase(bd);
     }
-
-    for (const [nombre, tiempo, tarifa, region] of RUTAS) {
-      await bd.query(
-        'INSERT INTO rutas (nombre, tiempo_estimado, tarifa_por_kg, region) VALUES ($1, $2, $3, $4)',
-        [nombre, tiempo, tarifa, region]
-      );
-    }
-
-    let correlativo = 100000;
-    for (const [correo, ruta, peso, estado, transportista] of ENVIOS) {
-      correlativo += 1;
-      await bd.query(
-        `INSERT INTO envios (uuid, numero_guia, ruta, peso_kg, costo_envio, estado, transportista_asignado, usuario_id)
-         SELECT gen_random_uuid(), $1::text, r.nombre, $2::numeric,
-                ROUND($2::numeric * r.tarifa_por_kg, 2), $3::text, $4::text, u.id
-         FROM rutas r, usuarios u
-         WHERE r.nombre = $5::text AND u.correo = $6::text`,
-        [generarGuia(correlativo), peso, estado, transportista, ruta, correo]
-      );
-    }
+    await agregarEnviosAdicionales(bd);
   });
+}
+
+/** Usuarios, rutas y los 10 primeros envíos: solo en una base recién creada. */
+async function insertarDatosBase(bd) {
+  for (const [nombre, correo, clave, rol] of USUARIOS) {
+    await bd.query(
+      'INSERT INTO usuarios (nombre, correo, clave_hash, rol) VALUES ($1, $2, $3, $4)',
+      [nombre, correo, bcrypt.hashSync(clave, 10), rol]
+    );
+  }
+
+  for (const [nombre, tiempo, tarifa, region] of RUTAS) {
+    await bd.query(
+      'INSERT INTO rutas (nombre, tiempo_estimado, tarifa_por_kg, region) VALUES ($1, $2, $3, $4)',
+      [nombre, tiempo, tarifa, region]
+    );
+  }
+
+  let correlativo = 100000;
+  for (const [correo, ruta, peso, estado, transportista] of ENVIOS) {
+    correlativo += 1;
+    await bd.query(
+      `INSERT INTO envios (uuid, numero_guia, ruta, peso_kg, costo_envio, estado, transportista_asignado, usuario_id)
+       SELECT gen_random_uuid(), $1::text, r.nombre, $2::numeric,
+              ROUND($2::numeric * r.tarifa_por_kg, 2), $3::text, $4::text, u.id
+       FROM rutas r, usuarios u
+       WHERE r.nombre = $5::text AND u.correo = $6::text`,
+      [generarGuia(correlativo), peso, estado, transportista, ruta, correo]
+    );
+  }
+}
+
+/**
+ * Agrega los 30 envíos adicionales si todavía no están. Usa guías de la serie 300001–300030,
+ * que no chocan con las que generan las apps, y no modifica ningún envío existente.
+ */
+async function agregarEnviosAdicionales(bd) {
+  const ultimo = uuidAdicional(ENVIOS_ADICIONALES.length);
+  const yaEstan = await bd.query('SELECT 1 FROM envios WHERE uuid = $1', [ultimo]);
+  if (yaEstan.rows.length > 0) return;
+
+  const fechaGuia = new Date(2026, 0, 1);
+  let numero = 0;
+  for (const [correo, ruta, peso, estado, transportista] of ENVIOS_ADICIONALES) {
+    numero += 1;
+    await bd.query(
+      `INSERT INTO envios (uuid, numero_guia, ruta, peso_kg, costo_envio, estado, transportista_asignado, usuario_id)
+       SELECT $1::uuid, $2::text, r.nombre, $3::numeric,
+              ROUND($3::numeric * r.tarifa_por_kg, 2), $4::text, $5::text, u.id
+       FROM rutas r, usuarios u
+       WHERE r.nombre = $6::text AND u.correo = $7::text
+       ON CONFLICT DO NOTHING`,
+      [uuidAdicional(numero), generarGuia(300000 + numero, fechaGuia), peso, estado, transportista, ruta, correo]
+    );
+  }
 }
 
 let listo;
@@ -158,4 +230,4 @@ function asegurarEsquema() {
   return listo;
 }
 
-module.exports = { asegurarEsquema, generarGuia };
+module.exports = { asegurarEsquema, generarGuia, ENVIOS, ENVIOS_ADICIONALES, RUTAS, USUARIOS };
