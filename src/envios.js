@@ -5,7 +5,12 @@ const { generarGuia } = require('./esquema');
 
 const rutasEnvios = express.Router();
 
+// Flujo normal del envío. "pendiente" es el REGISTRADO de la ficha del proyecto final.
 const ESTADOS = ['pendiente', 'recogido', 'en_transito', 'en_reparto', 'entregado'];
+// Fuera del flujo: los registra el courier (fallido) o el operador (reprogramado); devuelto tras 3 intentos.
+const ESTADOS_ENTREGA_FALLIDA = ['fallido', 'reprogramado', 'devuelto'];
+const ESTADOS_CERRADOS = ['entregado', 'devuelto'];
+const MAX_INTENTOS = 3;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PESO_MAXIMO = 30000;
 
@@ -19,13 +24,90 @@ function aJson(fila) {
     costoEnvio: Number(fila.costo_envio),
     estado: fila.estado,
     transportistaAsignado: fila.transportista_asignado,
+    courierId: fila.courier_id ?? null,
+    destinatarioNombre: fila.destinatario_nombre ?? null,
+    destinatarioTelefono: fila.destinatario_telefono ?? null,
+    destinatarioDireccion: fila.destinatario_direccion ?? null,
+    montoContraentrega: Number(fila.monto_contraentrega ?? 0),
+    intentos: fila.intentos ?? 0,
     version: fila.version,
     actualizadoEn: fila.actualizado_en
   };
 }
 
-function esAdministrador(req) {
-  return req.usuario.rol === 'administrador';
+/** Operador y administrador ven y gestionan todos los envíos (App Admin). */
+function esOperacion(req) {
+  return req.usuario.rol === 'operador' || req.usuario.rol === 'administrador';
+}
+
+function esCourier(req) {
+  return req.usuario.rol === 'courier';
+}
+
+/** Cliente: solo sus envíos. Courier: solo los que tiene asignados. Operación: todos. */
+function puedeVer(req, envio) {
+  if (esOperacion(req)) return true;
+  if (esCourier(req)) return envio.courier_id === req.usuario.id;
+  return envio.usuario_id === req.usuario.id;
+}
+
+/** Texto "Nombre · Placa" que guarda transportista_asignado, como en el parcial. */
+function etiquetaCourier(courier) {
+  return `${courier.nombre} · ${courier.placa}`;
+}
+
+/** Envíos que el courier todavía tiene en curso: cuentan para su capacidad de paradas. */
+async function contarActivos(bd, courierId, excluirIds = []) {
+  const { rows } = await bd.query(
+    `SELECT COUNT(*)::int AS total FROM envios
+     WHERE courier_id = $1 AND NOT eliminado AND estado <> ALL($2::text[]) AND id <> ALL($3::int[])`,
+    [courierId, ESTADOS_CERRADOS, excluirIds]
+  );
+  return rows[0].total;
+}
+
+/**
+ * El operador indica el courier por su id (App Admin nueva) o por el texto "Nombre · Placa"
+ * (App Admin del parcial). En ambos casos debe ser un usuario con rol courier.
+ */
+async function resolverCourier(bd, { courierId, transportista }) {
+  let resultado;
+  if (courierId !== undefined && courierId !== null) {
+    resultado = await bd.query("SELECT * FROM usuarios WHERE id = $1 AND rol = 'courier'", [Number(courierId)]);
+  } else if (transportista) {
+    resultado = await bd.query(
+      "SELECT * FROM usuarios WHERE rol = 'courier' AND nombre || ' · ' || placa = $1",
+      [String(transportista)]
+    );
+  } else {
+    return null;
+  }
+  if (!resultado.rows[0]) {
+    throw error(422, 'COURIER_INVALIDO', 'El transportista indicado no está registrado como courier.');
+  }
+  return resultado.rows[0];
+}
+
+/** RF-O01: máximo de paradas activas por courier (capacidad, 30 por defecto). */
+async function validarCapacidad(bd, courier, nuevosIds) {
+  const activos = await contarActivos(bd, courier.id, nuevosIds);
+  if (activos + nuevosIds.length > courier.capacidad) {
+    const libres = Math.max(courier.capacidad - activos, 0);
+    throw error(
+      422,
+      'CAPACIDAD_EXCEDIDA',
+      `${courier.nombre} ya tiene ${activos} de ${courier.capacidad} paradas: solo puede recibir ${libres} más.`
+    );
+  }
+}
+
+/** RN-06: cada cambio de estado queda con la hora real en que ocurrió. */
+async function registrarEvento(bd, envioId, estado, usuarioId, fechaHora = new Date(), latitud = null, longitud = null) {
+  await bd.query(
+    `INSERT INTO eventos_envio (id, envio_id, estado, fecha_hora_evento, latitud, longitud, usuario_id)
+     VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6)`,
+    [envioId, estado, fechaHora, latitud, longitud, usuarioId]
+  );
 }
 
 function leerUuidOperacion(req) {
@@ -106,7 +188,7 @@ async function obtenerParaEditar(bd, req) {
   if (!envio) {
     throw error(404, 'NO_ENCONTRADO', 'El envío no existe en el servidor.');
   }
-  if (!esAdministrador(req) && envio.usuario_id !== req.usuario.id) {
+  if (!puedeVer(req, envio)) {
     throw error(403, 'SIN_PERMISO', 'Este envío pertenece a otro cliente.');
   }
   return envio;
@@ -124,16 +206,25 @@ const ETIQUETAS = {
   recogido: 'recogido',
   en_transito: 'en tránsito',
   en_reparto: 'en reparto',
-  entregado: 'entregado'
+  entregado: 'entregado',
+  fallido: 'con entrega fallida',
+  reprogramado: 'reprogramado',
+  devuelto: 'devuelto al remitente'
 };
 
+/** Un envío reprogramado vuelve a salir a reparto: cuenta como "en tránsito" para no retroceder. */
+function posicion(estado) {
+  return estado === 'reprogramado' ? ESTADOS.indexOf('en_transito') : ESTADOS.indexOf(estado);
+}
+
 /**
- * Reglas del administrador al cambiar estado y transportista (RF08 y RF09).
- * Son las mismas que aplica la App Operador antes de guardar; el servidor las repite
+ * Reglas del operador al cambiar estado y transportista (RF08 y RF09 del parcial).
+ * Son las mismas que aplica la App Admin antes de guardar; el servidor las repite
  * porque un cambio hecho sin conexión puede llegar cuando el envío ya avanzó.
  */
 function validarCambioAdministrador(envio, estado, transportista) {
-  if (!ESTADOS.includes(estado)) {
+  // Fallido y reprogramado no se eligen aquí, pero se mantienen si solo cambia el courier.
+  if (!ESTADOS.includes(estado) && estado !== envio.estado) {
     throw error(422, 'ESTADO_INVALIDO', 'El estado indicado no existe.');
   }
   if (envio.estado === 'entregado') {
@@ -143,7 +234,21 @@ function validarCambioAdministrador(envio, estado, transportista) {
       envio
     );
   }
-  if (ESTADOS.indexOf(estado) < ESTADOS.indexOf(envio.estado)) {
+  if (envio.estado === 'devuelto') {
+    throw conflicto(
+      'ENVIO_CERRADO',
+      'El envío fue devuelto al remitente tras 3 intentos fallidos: ya no se puede cambiar.',
+      envio
+    );
+  }
+  if (envio.estado === 'fallido' && estado !== 'fallido') {
+    throw conflicto(
+      'ENTREGA_FALLIDA',
+      'La entrega falló: reprográmala antes de cambiar el estado.',
+      envio
+    );
+  }
+  if (posicion(estado) < posicion(envio.estado)) {
     throw conflicto(
       'ESTADO_NO_RETROCEDE',
       `El estado solo puede avanzar: el envío ya está ${ETIQUETAS[envio.estado]}.`,
@@ -155,14 +260,27 @@ function validarCambioAdministrador(envio, estado, transportista) {
   }
 }
 
-/** GET /api/envios → el cliente recibe solo sus envíos; el administrador, todos. */
+/**
+ * GET /api/envios → cliente: sus envíos; courier: los asignados; operación: todos.
+ * Filtros: ?estado=, ?ruta=, ?zona= y ?courierId= (este último, solo operación).
+ */
 rutasEnvios.get('/', async (req, res, next) => {
   try {
     const condiciones = ['NOT eliminado'];
     const parametros = [];
-    if (!esAdministrador(req)) {
+    if (esCourier(req)) {
+      parametros.push(req.usuario.id);
+      condiciones.push(`courier_id = $${parametros.length}`);
+    } else if (!esOperacion(req)) {
       parametros.push(req.usuario.id);
       condiciones.push(`usuario_id = $${parametros.length}`);
+    } else if (req.query.courierId) {
+      parametros.push(Number(req.query.courierId));
+      condiciones.push(`courier_id = $${parametros.length}`);
+    }
+    if (req.query.zona) {
+      parametros.push(String(req.query.zona));
+      condiciones.push(`ruta IN (SELECT nombre FROM rutas WHERE zona = $${parametros.length})`);
     }
     if (req.query.estado) {
       parametros.push(String(req.query.estado));
@@ -194,7 +312,7 @@ rutasEnvios.get('/:id', async (req, res, next) => {
     if (!envio) {
       throw error(404, 'NO_ENCONTRADO', 'El envío no existe en el servidor.');
     }
-    if (!esAdministrador(req) && envio.usuario_id !== req.usuario.id) {
+    if (!puedeVer(req, envio)) {
       throw error(403, 'SIN_PERMISO', 'Este envío pertenece a otro cliente.');
     }
     res.json(aJson(envio));
@@ -206,7 +324,7 @@ rutasEnvios.get('/:id', async (req, res, next) => {
 /** POST /api/envios → registra un envío del cliente. Cuerpo: uuidOperacion, uuid, numeroGuia, ruta, pesoKg */
 rutasEnvios.post('/', (req, res, next) => {
   ejecutarUnaVez(req, res, next, 'CREAR', async (bd) => {
-    if (esAdministrador(req)) {
+    if (req.usuario.rol !== 'cliente') {
       throw error(403, 'SIN_PERMISO', 'Solo los clientes registran envíos.');
     }
     const uuid = String(req.body?.uuid || '').toLowerCase();
@@ -250,37 +368,60 @@ rutasEnvios.post('/', (req, res, next) => {
   });
 });
 
+/** Rechaza el cambio si la app lo hizo sobre una versión que ya no es la del servidor. */
+function validarVersion(req, envio) {
+  const versionCliente = Number(req.body?.version);
+  if (Number.isInteger(versionCliente) && versionCliente !== envio.version) {
+    throw conflicto(
+      'VERSION_DESACTUALIZADA',
+      'El envío cambió en el servidor después de tu última sincronización.',
+      envio
+    );
+  }
+}
+
 /**
  * PUT /api/envios/:id
  * Cliente: cambia ruta y peso de un envío propio que sigue pendiente.
- * Administrador: cambia estado y transportista.
+ * Operador y administrador: cambian estado y courier (courierId, o transportistaAsignado como en el parcial).
  */
 rutasEnvios.put('/:id', (req, res, next) => {
   ejecutarUnaVez(req, res, next, 'ACTUALIZAR', async (bd) => {
+    if (esCourier(req)) {
+      throw error(403, 'SIN_PERMISO', 'El courier registra recojos y entregas desde su propia app.');
+    }
     const envio = await obtenerParaEditar(bd, req);
     if (envio.eliminado) {
       throw error(404, 'NO_ENCONTRADO', 'El envío fue eliminado en el servidor.');
     }
-
-    const versionCliente = Number(req.body?.version);
-    if (Number.isInteger(versionCliente) && versionCliente !== envio.version) {
-      throw conflicto(
-        'VERSION_DESACTUALIZADA',
-        'El envío cambió en el servidor después de tu última sincronización.',
-        envio
-      );
-    }
+    validarVersion(req, envio);
 
     let actualizado;
-    if (esAdministrador(req)) {
+    if (esOperacion(req)) {
       const estado = req.body?.estado ?? envio.estado;
-      const transportista = req.body?.transportistaAsignado ?? envio.transportista_asignado;
-      validarCambioAdministrador(envio, estado, transportista);
+      const cambiaCourier = req.body?.courierId !== undefined || req.body?.transportistaAsignado !== undefined;
+      const courier = cambiaCourier
+        ? await resolverCourier(bd, { courierId: req.body?.courierId, transportista: req.body?.transportistaAsignado })
+        : envio.courier_id
+          ? (await bd.query('SELECT * FROM usuarios WHERE id = $1', [envio.courier_id])).rows[0]
+          : null;
+
+      // Un transportista escrito en el parcial que no es courier se conserva hasta que lo reasignen.
+      const etiqueta = courier ? etiquetaCourier(courier) : cambiaCourier ? null : envio.transportista_asignado;
+      validarCambioAdministrador(envio, estado, etiqueta);
+      if (courier && courier.id !== envio.courier_id) {
+        await validarCapacidad(bd, courier, [envio.id]);
+      }
+
       actualizado = await bd.query(
-        `UPDATE envios SET estado = $1, transportista_asignado = $2, version = version + 1, actualizado_en = NOW()
-         WHERE id = $3 RETURNING *`,
-        [estado, transportista || null, envio.id]
+        `UPDATE envios SET estado = $1, courier_id = $2, transportista_asignado = $3,
+                version = version + 1, actualizado_en = NOW()
+         WHERE id = $4 RETURNING *`,
+        [estado, courier ? courier.id : null, etiqueta, envio.id]
       );
+      if (estado !== envio.estado) {
+        await registrarEvento(bd, envio.id, estado, req.usuario.id);
+      }
     } else {
       if (envio.estado !== 'pendiente') {
         throw conflicto(
@@ -305,6 +446,9 @@ rutasEnvios.put('/:id', (req, res, next) => {
 /** DELETE /api/envios/:id?uuidOperacion=…&version=… → solo envíos pendientes. */
 rutasEnvios.delete('/:id', (req, res, next) => {
   ejecutarUnaVez(req, res, next, 'ELIMINAR', async (bd) => {
+    if (esCourier(req)) {
+      throw error(403, 'SIN_PERMISO', 'El courier no puede eliminar envíos.');
+    }
     const envio = await obtenerParaEditar(bd, req);
     if (envio.eliminado) {
       return { estado: 200, cuerpo: { id: envio.id, eliminado: true }, idEnvio: envio.id };
@@ -324,4 +468,118 @@ rutasEnvios.delete('/:id', (req, res, next) => {
   });
 });
 
-module.exports = { rutasEnvios, validarCambioAdministrador };
+const MOTIVOS_FALLA = ['ausente', 'direccion_errada', 'rechazado', 'zona_inaccesible'];
+
+/** Hora real del evento enviada por la app (RN-06). No se acepta una hora en el futuro. */
+function leerFechaEvento(valor) {
+  if (valor === undefined || valor === null || valor === '') return new Date();
+  const fecha = new Date(valor);
+  if (Number.isNaN(fecha.getTime())) {
+    throw error(422, 'FECHA_INVALIDA', 'La fecha y hora del evento no son válidas.');
+  }
+  if (fecha.getTime() > Date.now() + 5 * 60 * 1000) {
+    throw error(422, 'FECHA_INVALIDA', 'La fecha del evento no puede estar en el futuro.');
+  }
+  return fecha;
+}
+
+/**
+ * POST /api/envios/:id/fallido (courier, RF-C07)
+ * Cuerpo: uuidOperacion, motivo, fotoUrl, fechaHora, latitud, longitud.
+ * RN-05: al tercer intento el envío pasa a DEVUELTO.
+ */
+rutasEnvios.post('/:id/fallido', (req, res, next) => {
+  ejecutarUnaVez(req, res, next, 'FALLIDO', async (bd) => {
+    if (!esCourier(req)) {
+      throw error(403, 'SIN_PERMISO', 'Solo el courier asignado registra una entrega fallida.');
+    }
+    const envio = await obtenerParaEditar(bd, req);
+    if (envio.estado !== 'en_reparto' && envio.estado !== 'reprogramado') {
+      throw conflicto(
+        'ESTADO_NO_PERMITE',
+        `Solo se registra una entrega fallida si el envío está en reparto; ahora está ${ETIQUETAS[envio.estado]}.`,
+        envio
+      );
+    }
+    const motivo = String(req.body?.motivo || '');
+    if (!MOTIVOS_FALLA.includes(motivo)) {
+      throw error(422, 'MOTIVO_INVALIDO', 'Elige el motivo: ausente, dirección errada, rechazado o zona inaccesible.');
+    }
+    const fecha = leerFechaEvento(req.body?.fechaHora);
+    const latitud = req.body?.latitud ?? null;
+    const longitud = req.body?.longitud ?? null;
+
+    const numero = envio.intentos + 1;
+    const estado = numero >= MAX_INTENTOS ? 'devuelto' : 'fallido';
+    await bd.query(
+      `INSERT INTO intentos_fallidos (envio_id, numero, motivo, foto_url, fecha, courier_id)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [envio.id, numero, motivo, req.body?.fotoUrl || null, fecha, req.usuario.id]
+    );
+    const actualizado = await bd.query(
+      `UPDATE envios SET estado = $1, intentos = $2, version = version + 1, actualizado_en = NOW()
+       WHERE id = $3 RETURNING *`,
+      [estado, numero, envio.id]
+    );
+    await registrarEvento(bd, envio.id, 'fallido', req.usuario.id, fecha, latitud, longitud);
+    if (estado === 'devuelto') {
+      await registrarEvento(bd, envio.id, 'devuelto', req.usuario.id, fecha, latitud, longitud);
+    }
+    return { estado: 201, cuerpo: aJson(actualizado.rows[0]), idEnvio: envio.id };
+  });
+});
+
+/**
+ * POST /api/envios/:id/reprogramar (operador o administrador)
+ * Cuerpo: uuidOperacion, version y, si se quiere cambiar, courierId.
+ */
+rutasEnvios.post('/:id/reprogramar', (req, res, next) => {
+  ejecutarUnaVez(req, res, next, 'REPROGRAMAR', async (bd) => {
+    if (!esOperacion(req)) {
+      throw error(403, 'SIN_PERMISO', 'Solo el operador reprograma entregas.');
+    }
+    const envio = await obtenerParaEditar(bd, req);
+    validarVersion(req, envio);
+    if (envio.estado !== 'fallido') {
+      throw conflicto(
+        'ESTADO_NO_PERMITE',
+        `Solo se reprograma una entrega fallida; el envío está ${ETIQUETAS[envio.estado]}.`,
+        envio
+      );
+    }
+
+    let courierId = envio.courier_id;
+    let etiqueta = envio.transportista_asignado;
+    if (req.body?.courierId !== undefined && req.body?.courierId !== null) {
+      const courier = await resolverCourier(bd, { courierId: req.body.courierId });
+      if (courier.id !== envio.courier_id) {
+        await validarCapacidad(bd, courier, [envio.id]);
+      }
+      courierId = courier.id;
+      etiqueta = etiquetaCourier(courier);
+    }
+
+    const actualizado = await bd.query(
+      `UPDATE envios SET estado = 'reprogramado', courier_id = $1, transportista_asignado = $2,
+              version = version + 1, actualizado_en = NOW()
+       WHERE id = $3 RETURNING *`,
+      [courierId, etiqueta, envio.id]
+    );
+    await registrarEvento(bd, envio.id, 'reprogramado', req.usuario.id);
+    return { estado: 200, cuerpo: aJson(actualizado.rows[0]), idEnvio: envio.id };
+  });
+});
+
+module.exports = {
+  rutasEnvios,
+  validarCambioAdministrador,
+  aJson,
+  ejecutarUnaVez,
+  esOperacion,
+  resolverCourier,
+  validarCapacidad,
+  contarActivos,
+  etiquetaCourier,
+  ESTADOS_CERRADOS,
+  MAX_INTENTOS
+};

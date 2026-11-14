@@ -46,3 +46,135 @@ CREATE TABLE IF NOT EXISTS operaciones_procesadas (
     respuesta      JSONB NOT NULL,
     fecha          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Proyecto final (versión 2). La API la aplica una sola vez y la anota en la tabla migraciones.
+CREATE TABLE IF NOT EXISTS migraciones (
+    version     INTEGER PRIMARY KEY,
+    nombre      TEXT NOT NULL,
+    aplicada_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_rol_check;
+
+ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check
+  CHECK (rol IN ('cliente', 'operador', 'administrador', 'courier'));
+
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS placa TEXT;
+
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS zona TEXT;
+
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS capacidad INTEGER NOT NULL DEFAULT 30 CHECK (capacidad > 0);
+
+ALTER TABLE rutas ADD COLUMN IF NOT EXISTS zona TEXT;
+
+ALTER TABLE envios DROP CONSTRAINT IF EXISTS envios_estado_check;
+
+ALTER TABLE envios ADD CONSTRAINT envios_estado_check
+  CHECK (estado IN ('pendiente', 'recogido', 'en_transito', 'en_reparto', 'entregado',
+                    'fallido', 'reprogramado', 'devuelto'));
+
+ALTER TABLE envios ADD COLUMN IF NOT EXISTS courier_id INTEGER REFERENCES usuarios (id);
+
+ALTER TABLE envios ADD COLUMN IF NOT EXISTS destinatario_nombre TEXT;
+
+ALTER TABLE envios ADD COLUMN IF NOT EXISTS destinatario_telefono TEXT;
+
+ALTER TABLE envios ADD COLUMN IF NOT EXISTS destinatario_direccion TEXT;
+
+ALTER TABLE envios ADD COLUMN IF NOT EXISTS monto_contraentrega NUMERIC(12, 2) NOT NULL DEFAULT 0
+  CHECK (monto_contraentrega >= 0);
+
+ALTER TABLE envios ADD COLUMN IF NOT EXISTS intentos INTEGER NOT NULL DEFAULT 0;
+
+ALTER TABLE envios ADD COLUMN IF NOT EXISTS creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+CREATE INDEX IF NOT EXISTS envios_courier_idx ON envios (courier_id);
+
+CREATE TABLE IF NOT EXISTS paradas (
+  id         SERIAL PRIMARY KEY,
+  courier_id INTEGER NOT NULL REFERENCES usuarios (id),
+  envio_id   INTEGER NOT NULL REFERENCES envios (id),
+  tipo       TEXT NOT NULL CHECK (tipo IN ('recojo', 'entrega')),
+  orden      INTEGER NOT NULL,
+  latitud    NUMERIC(9, 6),
+  longitud   NUMERIC(9, 6),
+  fecha      DATE NOT NULL DEFAULT CURRENT_DATE,
+  UNIQUE (envio_id, tipo, fecha)
+);
+
+CREATE TABLE IF NOT EXISTS eventos_envio (
+  id                UUID PRIMARY KEY,
+  envio_id          INTEGER NOT NULL REFERENCES envios (id),
+  estado            TEXT NOT NULL,
+  fecha_hora_evento TIMESTAMPTZ NOT NULL,
+  latitud           NUMERIC(9, 6),
+  longitud          NUMERIC(9, 6),
+  usuario_id        INTEGER REFERENCES usuarios (id),
+  registrado_en     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS eventos_envio_envio_idx ON eventos_envio (envio_id, fecha_hora_evento);
+
+CREATE TABLE IF NOT EXISTS evidencias (
+  id            SERIAL PRIMARY KEY,
+  envio_id      INTEGER NOT NULL UNIQUE REFERENCES envios (id),
+  foto_url      TEXT NOT NULL,
+  firma_url     TEXT NOT NULL,
+  recibe_nombre TEXT NOT NULL,
+  recibe_dni    CHAR(8) NOT NULL CHECK (recibe_dni ~ '^[0-9]{8}$'),
+  fecha_hora    TIMESTAMPTZ NOT NULL,
+  latitud       NUMERIC(9, 6),
+  longitud      NUMERIC(9, 6)
+);
+
+CREATE TABLE IF NOT EXISTS liquidaciones (
+  id                  SERIAL PRIMARY KEY,
+  remitente_id        INTEGER NOT NULL REFERENCES usuarios (id),
+  periodo             TEXT NOT NULL,
+  recaudado           NUMERIC(12, 2) NOT NULL,
+  costo_envios        NUMERIC(12, 2) NOT NULL,
+  neto                NUMERIC(12, 2) NOT NULL,
+  estado              TEXT NOT NULL DEFAULT 'CALCULADA' CHECK (estado IN ('CALCULADA', 'APROBADA', 'TRANSFERIDA')),
+  nro_operacion_banco TEXT,
+  aprobada_por        INTEGER REFERENCES usuarios (id),
+  creado_en           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (remitente_id, periodo)
+);
+
+CREATE TABLE IF NOT EXISTS cobros (
+  id                  UUID PRIMARY KEY,
+  envio_id            INTEGER NOT NULL REFERENCES envios (id),
+  tipo                TEXT NOT NULL CHECK (tipo IN ('envio', 'contraentrega')),
+  monto               NUMERIC(12, 2) NOT NULL CHECK (monto > 0),
+  nro_operacion_banco TEXT UNIQUE,
+  estado              TEXT NOT NULL DEFAULT 'POR_COBRAR'
+                        CHECK (estado IN ('POR_COBRAR', 'PENDIENTE_CONFIRMACION', 'CONFIRMADO', 'LIQUIDADO')),
+  comprobante_url     TEXT,
+  liquidacion_id      INTEGER REFERENCES liquidaciones (id),
+  creado_en           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  confirmado_en       TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS intentos_fallidos (
+  id         SERIAL PRIMARY KEY,
+  envio_id   INTEGER NOT NULL REFERENCES envios (id),
+  numero     INTEGER NOT NULL,
+  motivo     TEXT NOT NULL CHECK (motivo IN ('ausente', 'direccion_errada', 'rechazado', 'zona_inaccesible')),
+  foto_url   TEXT,
+  fecha      TIMESTAMPTZ NOT NULL,
+  courier_id INTEGER REFERENCES usuarios (id),
+  UNIQUE (envio_id, numero)
+);
+
+CREATE TABLE IF NOT EXISTS solicitudes_credito (
+  id                     SERIAL PRIMARY KEY,
+  solicitante_id         INTEGER NOT NULL REFERENCES usuarios (id),
+  monto                  NUMERIC(12, 2) NOT NULL CHECK (monto > 0),
+  plazo_meses            INTEGER NOT NULL CHECK (plazo_meses > 0),
+  proposito              TEXT NOT NULL,
+  facturacion_autorizada JSONB NOT NULL,
+  estado                 TEXT NOT NULL DEFAULT 'ENVIADO'
+                           CHECK (estado IN ('ENVIADO', 'EN_EVALUACION', 'APROBADO', 'RECHAZADO', 'DESEMBOLSADO')),
+  codigo_banco           TEXT,
+  creado_en              TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

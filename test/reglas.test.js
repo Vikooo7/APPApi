@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { validarCambioAdministrador } = require('../src/envios');
-const { ENVIOS, ENVIOS_ADICIONALES, RUTAS, USUARIOS, generarGuia } = require('../src/esquema');
+const { ENVIOS, ENVIOS_ADICIONALES, RUTAS, USUARIOS, COURIERS, ZONAS, generarGuia } = require('../src/esquema');
 
 const TRANSPORTISTA = 'Carlos Quispe Mamani · AQP-482';
 
@@ -57,6 +57,47 @@ test('un envío entregado queda cerrado (409)', () => {
 
 test('un estado que no existe se rechaza (422)', () => {
   rechaza(() => validarCambioAdministrador(envio('pendiente'), 'perdido', TRANSPORTISTA), 422, 'ESTADO_INVALIDO');
+});
+
+test('una entrega fallida se reprograma antes de cambiar el estado (409)', () => {
+  rechaza(
+    () => validarCambioAdministrador(envio('fallido', TRANSPORTISTA), 'en_reparto', TRANSPORTISTA),
+    409,
+    'ENTREGA_FALLIDA'
+  );
+});
+
+test('en una entrega fallida o reprogramada se puede cambiar solo el courier', () => {
+  validarCambioAdministrador(envio('fallido', TRANSPORTISTA), 'fallido', 'Otro · ABC-123');
+  validarCambioAdministrador(envio('reprogramado', TRANSPORTISTA), 'reprogramado', 'Otro · ABC-123');
+});
+
+test('una entrega reprogramada vuelve a reparto pero no retrocede a recogido', () => {
+  validarCambioAdministrador(envio('reprogramado', TRANSPORTISTA), 'en_reparto', TRANSPORTISTA);
+  rechaza(
+    () => validarCambioAdministrador(envio('reprogramado', TRANSPORTISTA), 'recogido', TRANSPORTISTA),
+    409,
+    'ESTADO_NO_RETROCEDE'
+  );
+});
+
+test('el operador no marca fallido a mano ni cambia un envío devuelto', () => {
+  rechaza(() => validarCambioAdministrador(envio('en_reparto', TRANSPORTISTA), 'fallido', TRANSPORTISTA), 422, 'ESTADO_INVALIDO');
+  rechaza(() => validarCambioAdministrador(envio('devuelto', TRANSPORTISTA), 'devuelto', 'Otro · ABC-123'), 409, 'ENVIO_CERRADO');
+});
+
+test('cada transportista de los datos de ejemplo es un courier registrado', () => {
+  const etiquetas = new Set(COURIERS.map(([nombre, placa]) => `${nombre} · ${placa}`));
+  const zonas = Object.keys(ZONAS);
+  for (const [, , , , transportista] of [...ENVIOS, ...ENVIOS_ADICIONALES]) {
+    if (transportista) assert.ok(etiquetas.has(transportista), `sin courier: ${transportista}`);
+  }
+  for (const [, , zona] of COURIERS) assert.ok(zonas.includes(zona), `zona desconocida: ${zona}`);
+});
+
+test('todas las rutas tienen una zona', () => {
+  const regiones = new Set(Object.values(ZONAS).flat());
+  for (const [nombre, , , region] of RUTAS) assert.ok(regiones.has(region), `sin zona: ${nombre}`);
 });
 
 test('los datos de ejemplo suman 40 envíos válidos', () => {

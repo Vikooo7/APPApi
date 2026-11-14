@@ -132,6 +132,230 @@ const ENVIOS_ADICIONALES = [
   ['cliente2@rutalog.pe', 'Lima → Iquitos', 110, 'pendiente', null]
 ];
 
+// Proyecto final: los transportistas del parcial pasan a ser usuarios con rol courier.
+// nombre, placa, zona base. El texto "Nombre · Placa" que ya guardan los envíos se enlaza con cada uno.
+const COURIERS = [
+  ['Rosa Huamán Torres', 'BFK-209', 'Lima y Callao'],
+  ['Jorge Castillo Vega', 'T2L-771', 'Norte'],
+  ['Lucía Flores Ramos', 'C5H-903', 'Norte'],
+  ['Hilda Sánchez Paredes', 'M1N-447', 'Norte'],
+  ['Milagros Rojas Pérez', 'F7R-318', 'Centro'],
+  ['Carlos Quispe Mamani', 'AQP-482', 'Sur'],
+  ['Wilber Condori Apaza', 'X3C-560', 'Sur'],
+  ['Yeni Mamani Choque', 'Z9P-640', 'Sur'],
+  ['Edwin Tapullima Sangama', 'U4S-218', 'Oriente'],
+  ['Percy Ccahuana Huillca', 'V8K-125', 'Oriente']
+];
+
+// Las mismas 5 zonas que muestra la App Admin (CatalogoRutas.zonas), según la región de destino.
+const ZONAS = {
+  'Lima y Callao': ['Lima', 'Callao'],
+  Norte: ['Tumbes', 'Piura', 'Lambayeque', 'La Libertad', 'Cajamarca', 'Áncash'],
+  Centro: ['Huánuco', 'Pasco', 'Junín', 'Huancavelica', 'Ayacucho'],
+  Sur: ['Ica', 'Apurímac', 'Cusco', 'Arequipa', 'Puno', 'Moquegua', 'Tacna'],
+  Oriente: ['Amazonas', 'San Martín', 'Loreto', 'Ucayali', 'Madre de Dios']
+};
+
+/**
+ * Cambios del proyecto final sobre la base del parcial. Cada versión se aplica una sola vez
+ * (tabla migraciones) y solo agrega: no borra columnas ni datos que usen las apps actuales.
+ */
+const MIGRACIONES = [
+  {
+    version: 2,
+    nombre: 'Proyecto final: roles, couriers, contraentrega, eventos, evidencias, cobros y liquidaciones',
+    pasos: [
+      'ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_rol_check',
+      `ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check
+         CHECK (rol IN ('cliente', 'operador', 'administrador', 'courier'))`,
+      'ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS placa TEXT',
+      'ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS zona TEXT',
+      'ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS capacidad INTEGER NOT NULL DEFAULT 30 CHECK (capacidad > 0)',
+
+      'ALTER TABLE rutas ADD COLUMN IF NOT EXISTS zona TEXT',
+
+      'ALTER TABLE envios DROP CONSTRAINT IF EXISTS envios_estado_check',
+      `ALTER TABLE envios ADD CONSTRAINT envios_estado_check
+         CHECK (estado IN ('pendiente', 'recogido', 'en_transito', 'en_reparto', 'entregado',
+                           'fallido', 'reprogramado', 'devuelto'))`,
+      'ALTER TABLE envios ADD COLUMN IF NOT EXISTS courier_id INTEGER REFERENCES usuarios (id)',
+      'ALTER TABLE envios ADD COLUMN IF NOT EXISTS destinatario_nombre TEXT',
+      'ALTER TABLE envios ADD COLUMN IF NOT EXISTS destinatario_telefono TEXT',
+      'ALTER TABLE envios ADD COLUMN IF NOT EXISTS destinatario_direccion TEXT',
+      `ALTER TABLE envios ADD COLUMN IF NOT EXISTS monto_contraentrega NUMERIC(12, 2) NOT NULL DEFAULT 0
+         CHECK (monto_contraentrega >= 0)`,
+      'ALTER TABLE envios ADD COLUMN IF NOT EXISTS intentos INTEGER NOT NULL DEFAULT 0',
+      'ALTER TABLE envios ADD COLUMN IF NOT EXISTS creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()',
+      'CREATE INDEX IF NOT EXISTS envios_courier_idx ON envios (courier_id)',
+
+      `CREATE TABLE IF NOT EXISTS paradas (
+         id         SERIAL PRIMARY KEY,
+         courier_id INTEGER NOT NULL REFERENCES usuarios (id),
+         envio_id   INTEGER NOT NULL REFERENCES envios (id),
+         tipo       TEXT NOT NULL CHECK (tipo IN ('recojo', 'entrega')),
+         orden      INTEGER NOT NULL,
+         latitud    NUMERIC(9, 6),
+         longitud   NUMERIC(9, 6),
+         fecha      DATE NOT NULL DEFAULT CURRENT_DATE,
+         UNIQUE (envio_id, tipo, fecha)
+       )`,
+      // RN-06: cada cambio de estado se guarda con la hora real en que ocurrió, aunque llegue tarde.
+      `CREATE TABLE IF NOT EXISTS eventos_envio (
+         id                UUID PRIMARY KEY,
+         envio_id          INTEGER NOT NULL REFERENCES envios (id),
+         estado            TEXT NOT NULL,
+         fecha_hora_evento TIMESTAMPTZ NOT NULL,
+         latitud           NUMERIC(9, 6),
+         longitud          NUMERIC(9, 6),
+         usuario_id        INTEGER REFERENCES usuarios (id),
+         registrado_en     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+       )`,
+      'CREATE INDEX IF NOT EXISTS eventos_envio_envio_idx ON eventos_envio (envio_id, fecha_hora_evento)',
+      // RN-03: sin foto y firma no se cierra una entrega.
+      `CREATE TABLE IF NOT EXISTS evidencias (
+         id            SERIAL PRIMARY KEY,
+         envio_id      INTEGER NOT NULL UNIQUE REFERENCES envios (id),
+         foto_url      TEXT NOT NULL,
+         firma_url     TEXT NOT NULL,
+         recibe_nombre TEXT NOT NULL,
+         recibe_dni    CHAR(8) NOT NULL CHECK (recibe_dni ~ '^[0-9]{8}$'),
+         fecha_hora    TIMESTAMPTZ NOT NULL,
+         latitud       NUMERIC(9, 6),
+         longitud      NUMERIC(9, 6)
+       )`,
+      `CREATE TABLE IF NOT EXISTS liquidaciones (
+         id                  SERIAL PRIMARY KEY,
+         remitente_id        INTEGER NOT NULL REFERENCES usuarios (id),
+         periodo             TEXT NOT NULL,
+         recaudado           NUMERIC(12, 2) NOT NULL,
+         costo_envios        NUMERIC(12, 2) NOT NULL,
+         neto                NUMERIC(12, 2) NOT NULL,
+         estado              TEXT NOT NULL DEFAULT 'CALCULADA' CHECK (estado IN ('CALCULADA', 'APROBADA', 'TRANSFERIDA')),
+         nro_operacion_banco TEXT,
+         aprobada_por        INTEGER REFERENCES usuarios (id),
+         creado_en           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+         UNIQUE (remitente_id, periodo)
+       )`,
+      // RN-01 y RN-04: el contraentrega es del remitente y solo se liquida lo que el banco confirmó.
+      `CREATE TABLE IF NOT EXISTS cobros (
+         id                  UUID PRIMARY KEY,
+         envio_id            INTEGER NOT NULL REFERENCES envios (id),
+         tipo                TEXT NOT NULL CHECK (tipo IN ('envio', 'contraentrega')),
+         monto               NUMERIC(12, 2) NOT NULL CHECK (monto > 0),
+         nro_operacion_banco TEXT UNIQUE,
+         estado              TEXT NOT NULL DEFAULT 'POR_COBRAR'
+                               CHECK (estado IN ('POR_COBRAR', 'PENDIENTE_CONFIRMACION', 'CONFIRMADO', 'LIQUIDADO')),
+         comprobante_url     TEXT,
+         liquidacion_id      INTEGER REFERENCES liquidaciones (id),
+         creado_en           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+         confirmado_en       TIMESTAMPTZ
+       )`,
+      // RN-05: al tercer intento fallido el envío vuelve al remitente.
+      `CREATE TABLE IF NOT EXISTS intentos_fallidos (
+         id         SERIAL PRIMARY KEY,
+         envio_id   INTEGER NOT NULL REFERENCES envios (id),
+         numero     INTEGER NOT NULL,
+         motivo     TEXT NOT NULL CHECK (motivo IN ('ausente', 'direccion_errada', 'rechazado', 'zona_inaccesible')),
+         foto_url   TEXT,
+         fecha      TIMESTAMPTZ NOT NULL,
+         courier_id INTEGER REFERENCES usuarios (id),
+         UNIQUE (envio_id, numero)
+       )`,
+      // RN-07 y RN-08: solo se comparte la facturación autorizada; el comité decide en la web del banco.
+      `CREATE TABLE IF NOT EXISTS solicitudes_credito (
+         id                     SERIAL PRIMARY KEY,
+         solicitante_id         INTEGER NOT NULL REFERENCES usuarios (id),
+         monto                  NUMERIC(12, 2) NOT NULL CHECK (monto > 0),
+         plazo_meses            INTEGER NOT NULL CHECK (plazo_meses > 0),
+         proposito              TEXT NOT NULL,
+         facturacion_autorizada JSONB NOT NULL,
+         estado                 TEXT NOT NULL DEFAULT 'ENVIADO'
+                                  CHECK (estado IN ('ENVIADO', 'EN_EVALUACION', 'APROBADO', 'RECHAZADO', 'DESEMBOLSADO')),
+         codigo_banco           TEXT,
+         creado_en              TIMESTAMPTZ NOT NULL DEFAULT NOW()
+       )`
+    ],
+    datos: datosVersion2
+  }
+];
+
+async function datosVersion2(bd) {
+  for (const [zona, regiones] of Object.entries(ZONAS)) {
+    await bd.query('UPDATE rutas SET zona = $1 WHERE region = ANY($2::text[])', [zona, regiones]);
+  }
+
+  const claveDemo = bcrypt.hashSync('1234', 10);
+  await bd.query(
+    `INSERT INTO usuarios (nombre, correo, clave_hash, rol) VALUES ('Supervisor de Turno', 'supervisor@rutalog.pe', $1, 'operador')
+     ON CONFLICT (correo) DO NOTHING`,
+    [claveDemo]
+  );
+
+  let numero = 0;
+  for (const [nombre, placa, zona] of COURIERS) {
+    numero += 1;
+    const { rows } = await bd.query(
+      `INSERT INTO usuarios (nombre, correo, clave_hash, rol, placa, zona) VALUES ($1, $2, $3, 'courier', $4, $5)
+       ON CONFLICT (correo) DO UPDATE SET placa = EXCLUDED.placa, zona = EXCLUDED.zona
+       RETURNING id`,
+      [nombre, `courier${numero}@rutalog.pe`, claveDemo, placa, zona]
+    );
+    // Los envíos que ya tenían este transportista (texto del parcial) quedan enlazados al courier.
+    await bd.query('UPDATE envios SET courier_id = $1 WHERE transportista_asignado = $2', [
+      rows[0].id,
+      `${nombre} · ${placa}`
+    ]);
+  }
+
+  // Dos entregas fallidas de ejemplo para la pantalla del operador, solo si siguen en reparto.
+  const ejemplos = [
+    [11, [['ausente', '2026-11-12T15:20:00-05:00']]],
+    [23, [['direccion_errada', '2026-11-11T10:05:00-05:00'], ['ausente', '2026-11-13T16:40:00-05:00']]]
+  ];
+  for (const [n, intentos] of ejemplos) {
+    const { rows } = await bd.query(
+      `UPDATE envios SET estado = 'fallido', intentos = $2, version = version + 1, actualizado_en = NOW()
+       WHERE uuid = $1 AND estado = 'en_reparto' RETURNING id, courier_id`,
+      [uuidAdicional(n), intentos.length]
+    );
+    if (!rows[0]) continue;
+    let i = 0;
+    for (const [motivo, fecha] of intentos) {
+      i += 1;
+      await bd.query(
+        `INSERT INTO intentos_fallidos (envio_id, numero, motivo, fecha, courier_id) VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT DO NOTHING`,
+        [rows[0].id, i, motivo, fecha, rows[0].courier_id]
+      );
+      await bd.query(
+        `INSERT INTO eventos_envio (id, envio_id, estado, fecha_hora_evento, usuario_id)
+         VALUES (gen_random_uuid(), $1, 'fallido', $2, $3)`,
+        [rows[0].id, fecha, rows[0].courier_id]
+      );
+    }
+  }
+}
+
+async function aplicarMigraciones(bd) {
+  await bd.query(
+    `CREATE TABLE IF NOT EXISTS migraciones (
+       version     INTEGER PRIMARY KEY,
+       nombre      TEXT NOT NULL,
+       aplicada_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+     )`
+  );
+  const { rows } = await bd.query('SELECT version FROM migraciones');
+  const aplicadas = new Set(rows.map((r) => r.version));
+  for (const migracion of MIGRACIONES) {
+    if (aplicadas.has(migracion.version)) continue;
+    for (const sql of migracion.pasos) {
+      await bd.query(sql);
+    }
+    await migracion.datos(bd);
+    await bd.query('INSERT INTO migraciones (version, nombre) VALUES ($1, $2)', [migracion.version, migracion.nombre]);
+  }
+}
+
 /** UUID fijo de cada envío adicional: permite saber si ya se agregó y no repetirlo. */
 function uuidAdicional(numero) {
   return `00000000-0000-4000-8000-${String(numero).padStart(12, '0')}`;
@@ -159,6 +383,7 @@ async function crearEsquema() {
       await insertarDatosBase(bd);
     }
     await agregarEnviosAdicionales(bd);
+    await aplicarMigraciones(bd);
   });
 }
 
@@ -230,4 +455,14 @@ function asegurarEsquema() {
   return listo;
 }
 
-module.exports = { asegurarEsquema, generarGuia, ENVIOS, ENVIOS_ADICIONALES, RUTAS, USUARIOS };
+module.exports = {
+  asegurarEsquema,
+  generarGuia,
+  ENVIOS,
+  ENVIOS_ADICIONALES,
+  RUTAS,
+  USUARIOS,
+  COURIERS,
+  ZONAS,
+  MIGRACIONES
+};

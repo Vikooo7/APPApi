@@ -3,6 +3,7 @@ const { consulta } = require('./db');
 const { asegurarEsquema } = require('./esquema');
 const { rutasAuth, requiereSesion, error } = require('./auth');
 const { rutasEnvios } = require('./envios');
+const { rutasOperacion } = require('./operacion');
 
 const app = express();
 app.use(express.json({ limit: '100kb' }));
@@ -46,13 +47,17 @@ app.get('/api/rutas', requiereSesion, async (req, res, next) => {
         nombre: r.nombre,
         tiempoEstimado: r.tiempo_estimado,
         tarifaPorKg: Number(r.tarifa_por_kg),
-        region: r.region
+        region: r.region,
+        zona: r.zona ?? null
       }))
     });
   } catch (e) {
     next(e);
   }
 });
+
+// App Admin: couriers, asignaciones y entregas fallidas (operador o administrador).
+app.use('/api', rutasOperacion);
 
 app.use((req, res, next) => {
   next(error(404, 'RUTA_NO_ENCONTRADA', `No existe ${req.method} ${req.path}`));
