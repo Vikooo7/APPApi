@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const { transaccion } = require('./db');
+const { coordenadasEnvio } = require('./rutas-optimas');
 
 /** Esquema de la base remota (PostgreSQL en Neon). El mismo SQL está en db/esquema.sql. */
 const TABLAS = [
@@ -276,8 +277,48 @@ const MIGRACIONES = [
        )`
     ],
     datos: datosVersion2
+  },
+  {
+    version: 3,
+    nombre: 'App Courier: coordenadas de recojo y entrega, archivos (foto, firma) y orden manual de paradas',
+    pasos: [
+      'ALTER TABLE envios ADD COLUMN IF NOT EXISTS origen_latitud NUMERIC(9, 6)',
+      'ALTER TABLE envios ADD COLUMN IF NOT EXISTS origen_longitud NUMERIC(9, 6)',
+      'ALTER TABLE envios ADD COLUMN IF NOT EXISTS destino_latitud NUMERIC(9, 6)',
+      'ALTER TABLE envios ADD COLUMN IF NOT EXISTS destino_longitud NUMERIC(9, 6)',
+      // Fotos y firmas comprimidas por la app (decenas de KB). Se sirven solo a quien puede ver el envío.
+      `CREATE TABLE IF NOT EXISTS archivos (
+         id         UUID PRIMARY KEY,
+         envio_id   INTEGER NOT NULL REFERENCES envios (id),
+         tipo       TEXT NOT NULL CHECK (tipo IN ('foto_entrega', 'firma', 'fachada', 'comprobante')),
+         mime       TEXT NOT NULL CHECK (mime IN ('image/jpeg', 'image/png')),
+         contenido  BYTEA NOT NULL,
+         bytes      INTEGER NOT NULL,
+         creado_por INTEGER REFERENCES usuarios (id),
+         creado_en  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+       )`,
+      'CREATE INDEX IF NOT EXISTS archivos_envio_idx ON archivos (envio_id)',
+      // RF-C02: el courier puede reordenar a mano; se registra que el orden ya no es el de ML-04.
+      'ALTER TABLE paradas ADD COLUMN IF NOT EXISTS manual BOOLEAN NOT NULL DEFAULT FALSE'
+    ],
+    datos: datosVersion3
   }
 ];
+
+/** Coordenadas simuladas para los envíos que ya existían (alrededor de su ciudad de origen y de destino). */
+async function datosVersion3(bd) {
+  const { rows } = await bd.query(
+    'SELECT e.id, e.uuid, e.ruta, r.region FROM envios e JOIN rutas r ON r.nombre = e.ruta'
+  );
+  for (const fila of rows) {
+    const { origen, destino } = coordenadasEnvio(fila.uuid, fila.ruta, fila.region);
+    await bd.query(
+      `UPDATE envios SET origen_latitud = $1, origen_longitud = $2, destino_latitud = $3, destino_longitud = $4
+       WHERE id = $5`,
+      [origen.latitud, origen.longitud, destino.latitud, destino.longitud, fila.id]
+    );
+  }
+}
 
 async function datosVersion2(bd) {
   for (const [zona, regiones] of Object.entries(ZONAS)) {

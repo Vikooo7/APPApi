@@ -2,6 +2,8 @@ const express = require('express');
 const { consulta, transaccion } = require('./db');
 const { error } = require('./auth');
 const { generarGuia } = require('./esquema');
+const { coordenadasEnvio } = require('./rutas-optimas');
+const { leerImagen, guardarArchivo } = require('./archivos');
 
 const rutasEnvios = express.Router();
 
@@ -12,6 +14,8 @@ const ESTADOS_CERRADOS = ['entregado', 'devuelto'];
 const MAX_INTENTOS = 3;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PESO_MAXIMO = 30000;
+
+const numeroONulo = (valor) => (valor === null || valor === undefined ? null : Number(valor));
 
 function aJson(fila) {
   return {
@@ -29,6 +33,10 @@ function aJson(fila) {
     destinatarioDireccion: fila.destinatario_direccion ?? null,
     montoContraentrega: Number(fila.monto_contraentrega ?? 0),
     intentos: fila.intentos ?? 0,
+    origenLatitud: numeroONulo(fila.origen_latitud),
+    origenLongitud: numeroONulo(fila.origen_longitud),
+    destinoLatitud: numeroONulo(fila.destino_latitud),
+    destinoLongitud: numeroONulo(fila.destino_longitud),
     version: fila.version,
     actualizadoEn: fila.actualizado_en
   };
@@ -446,10 +454,13 @@ rutasEnvios.post('/', (req, res, next) => {
       : true;
     const guiaTemporal = ocupada ? `TMP-${uuid}` : guiaPropuesta;
 
+    // Ubicación simulada de recojo y entrega (ML-04 ordena las paradas con estas coordenadas).
+    const { origen, destino } = coordenadasEnvio(uuid, ruta.nombre, ruta.region);
     const insertado = await bd.query(
       `INSERT INTO envios (uuid, numero_guia, ruta, peso_kg, costo_envio, usuario_id,
-                           destinatario_nombre, destinatario_telefono, destinatario_direccion, monto_contraentrega)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+                           destinatario_nombre, destinatario_telefono, destinatario_direccion, monto_contraentrega,
+                           origen_latitud, origen_longitud, destino_latitud, destino_longitud)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
       [
         uuid,
         guiaTemporal,
@@ -460,7 +471,11 @@ rutasEnvios.post('/', (req, res, next) => {
         destinatario.nombre,
         destinatario.telefono,
         destinatario.direccion,
-        destinatario.monto
+        destinatario.monto,
+        origen.latitud,
+        origen.longitud,
+        destino.latitud,
+        destino.longitud
       ]
     );
     let envio = insertado.rows[0];
@@ -545,11 +560,13 @@ rutasEnvios.put('/:id', (req, res, next) => {
       const ruta = await buscarRuta(bd, req.body?.ruta ?? envio.ruta);
       // Lo que no llegue en el cuerpo se conserva (la App Cliente del parcial solo envía ruta y peso).
       const destinatario = leerDestinatario(req.body, envio);
+      const { origen, destino } = coordenadasEnvio(envio.uuid, ruta.nombre, ruta.region);
       actualizado = await bd.query(
         `UPDATE envios SET ruta = $1, peso_kg = $2, costo_envio = $3,
                 destinatario_nombre = $4, destinatario_telefono = $5, destinatario_direccion = $6,
-                monto_contraentrega = $7, version = version + 1, actualizado_en = NOW()
-         WHERE id = $8 RETURNING *`,
+                monto_contraentrega = $7, origen_latitud = $8, origen_longitud = $9,
+                destino_latitud = $10, destino_longitud = $11, version = version + 1, actualizado_en = NOW()
+         WHERE id = $12 RETURNING *`,
         [
           ruta.nombre,
           pesoKg,
@@ -558,6 +575,10 @@ rutasEnvios.put('/:id', (req, res, next) => {
           destinatario.telefono,
           destinatario.direccion,
           destinatario.monto,
+          origen.latitud,
+          origen.longitud,
+          destino.latitud,
+          destino.longitud,
           envio.id
         ]
       );
@@ -594,22 +615,45 @@ rutasEnvios.delete('/:id', (req, res, next) => {
 
 const MOTIVOS_FALLA = ['ausente', 'direccion_errada', 'rechazado', 'zona_inaccesible'];
 
-/** Hora real del evento enviada por la app (RN-06). No se acepta una hora en el futuro. */
-function leerFechaEvento(valor) {
+const TOLERANCIA_RELOJ_MS = 5 * 60 * 1000;
+
+/**
+ * Hora real del evento enviada por la app (RN-06). No puede estar en el futuro ni ser anterior
+ * al registro del envío [envio] (se toleran 5 minutos de diferencia entre relojes).
+ */
+function leerFechaEvento(valor, envio = null) {
   if (valor === undefined || valor === null || valor === '') return new Date();
   const fecha = new Date(valor);
   if (Number.isNaN(fecha.getTime())) {
     throw error(422, 'FECHA_INVALIDA', 'La fecha y hora del evento no son válidas.');
   }
-  if (fecha.getTime() > Date.now() + 5 * 60 * 1000) {
+  if (fecha.getTime() > Date.now() + TOLERANCIA_RELOJ_MS) {
     throw error(422, 'FECHA_INVALIDA', 'La fecha del evento no puede estar en el futuro.');
+  }
+  if (envio?.creado_en && fecha.getTime() < new Date(envio.creado_en).getTime() - TOLERANCIA_RELOJ_MS) {
+    throw error(422, 'FECHA_INVALIDA', 'La fecha del evento es anterior al registro del envío: revisa la hora del teléfono.');
   }
   return fecha;
 }
 
+/** GPS del teléfono del courier. Es opcional (sin señal de GPS se registra igual), pero si llega se valida. */
+function leerUbicacion(body) {
+  const lat = body?.latitud;
+  const lon = body?.longitud;
+  if (lat === undefined || lat === null || lon === undefined || lon === null) {
+    return { latitud: null, longitud: null };
+  }
+  const latitud = Number(lat);
+  const longitud = Number(lon);
+  if (!Number.isFinite(latitud) || !Number.isFinite(longitud) || Math.abs(latitud) > 90 || Math.abs(longitud) > 180) {
+    throw error(422, 'UBICACION_INVALIDA', 'La ubicación GPS no es válida.');
+  }
+  return { latitud, longitud };
+}
+
 /**
- * POST /api/envios/:id/fallido (courier, RF-C07)
- * Cuerpo: uuidOperacion, motivo, fotoUrl, fechaHora, latitud, longitud.
+ * POST /api/envios/:id/fallido (courier, RF-C07 / HU-C05)
+ * Cuerpo: uuidOperacion, motivo, foto (fachada, JPEG en base64), fechaHora, latitud, longitud.
  * RN-05: al tercer intento el envío pasa a DEVUELTO.
  */
 rutasEnvios.post('/:id/fallido', (req, res, next) => {
@@ -629,16 +673,18 @@ rutasEnvios.post('/:id/fallido', (req, res, next) => {
     if (!MOTIVOS_FALLA.includes(motivo)) {
       throw error(422, 'MOTIVO_INVALIDO', 'Elige el motivo: ausente, dirección errada, rechazado o zona inaccesible.');
     }
-    const fecha = leerFechaEvento(req.body?.fechaHora);
-    const latitud = req.body?.latitud ?? null;
-    const longitud = req.body?.longitud ?? null;
+    const fecha = leerFechaEvento(req.body?.fechaHora, envio);
+    const { latitud, longitud } = leerUbicacion(req.body);
+    // HU-C05: la foto de la fachada es la evidencia de que el courier estuvo en la dirección.
+    const fachada = leerImagen(req.body?.foto, 'fachada', { nombre: 'la foto de la fachada' });
 
     const numero = envio.intentos + 1;
     const estado = numero >= MAX_INTENTOS ? 'devuelto' : 'fallido';
+    const fotoUrl = await guardarArchivo(bd, envio.id, 'fachada', fachada, req.usuario.id);
     await bd.query(
       `INSERT INTO intentos_fallidos (envio_id, numero, motivo, foto_url, fecha, courier_id)
        VALUES ($1, $2, $3, $4, $5, $6)`,
-      [envio.id, numero, motivo, req.body?.fotoUrl || null, fecha, req.usuario.id]
+      [envio.id, numero, motivo, fotoUrl, fecha, req.usuario.id]
     );
     const actualizado = await bd.query(
       `UPDATE envios SET estado = $1, intentos = $2, version = version + 1, actualizado_en = NOW()
@@ -705,6 +751,12 @@ module.exports = {
   validarCapacidad,
   contarActivos,
   etiquetaCourier,
+  obtenerParaEditar,
+  conflicto,
+  registrarEvento,
+  leerFechaEvento,
+  leerUbicacion,
+  ETIQUETAS,
   ESTADOS_CERRADOS,
   MAX_INTENTOS
 };

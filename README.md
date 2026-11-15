@@ -21,7 +21,12 @@ Las apps nunca se conectan a la base: todo pasa por esta API, que valida la sesi
 | `POST` | `/api/envios` | Cliente | Registra un envío (`uuidOperacion`, `uuid`, `numeroGuia`, `ruta`, `pesoKg` y, opcional, destinatario y `montoContraentrega`) |
 | `PUT` | `/api/envios/{id}` | Cliente / Operación | Cliente: ruta, peso, destinatario y monto si sigue pendiente. Operación: estado y courier (`courierId`) |
 | `DELETE` | `/api/envios/{id}?uuidOperacion=` | Cliente / Operación | Elimina un envío pendiente |
-| `POST` | `/api/envios/{id}/fallido` | Courier | Entrega fallida con motivo; al tercer intento el envío pasa a `devuelto` |
+| `POST` | `/api/envios/{id}/fallido` | Courier | Entrega fallida con motivo y foto de la fachada; al tercer intento el envío pasa a `devuelto` |
+| `POST` | `/api/envios/{id}/eventos` | Courier | Recogido (con la guía escaneada), en tránsito o en reparto, con hora real y GPS |
+| `POST` | `/api/envios/{id}/evidencia` | Courier | Entrega con foto, firma, nombre y DNI de quien recibe; queda `entregado` |
+| `GET` | `/api/courier/ruta` | Courier | Ruta del día ordenada con ML-04 (vecino más cercano + 2-opt) y km ahorrados |
+| `PUT` | `/api/courier/ruta/orden` | Courier | Orden elegido a mano por el courier (queda registrado como manual) |
+| `GET` | `/api/archivos/{id}` | Con sesión | Foto o firma; solo la ve el cliente dueño, el courier asignado o la operación |
 | `POST` | `/api/envios/{id}/reprogramar` | Operación | La entrega fallida vuelve a reparto (`reprogramado`), opcionalmente con otro courier |
 | `GET` | `/api/rutas` | Con sesión | Rutas activas, tiempo estimado, tarifa por kg y zona |
 | `GET` | `/api/couriers` | Operación | Couriers con zona, capacidad y paradas activas |
@@ -40,8 +45,10 @@ Las apps nunca se conectan a la base: todo pasa por esta API, que valida la sesi
 - **Duplicados (RF15):** cada escritura lleva un `uuidOperacion`. Si llega repetido, la API devuelve la respuesta guardada con `"duplicado": true` y no repite el cambio. Además, `envios.uuid` es único.
 - **Operación (estado y courier):** fuera de `pendiente`, el envío debe tener courier (`422 SIN_TRANSPORTISTA`). El courier debe existir (`422 COURIER_INVALIDO`) y tener cupo (`422 CAPACIDAD_EXCEDIDA`, 30 paradas por defecto).
 - **Destinatario y contraentrega:** nombre y dirección van juntos, el celular tiene 9 dígitos y empieza con 9, el monto va de 0 a S/ 10 000 y no se cobra contraentrega sin destinatario (`422`).
-- **Entregas fallidas (RN-05):** al tercer intento el envío pasa a `devuelto` y queda cerrado.
-- **Hora real (RN-06):** cada cambio de estado se guarda en `eventos_envio` con la hora en que ocurrió.
+- **Entregas fallidas (RN-05):** al tercer intento el envío pasa a `devuelto` y queda cerrado. Exigen la foto de la fachada.
+- **Hora real (RN-06):** cada cambio de estado se guarda en `eventos_envio` con la hora en que ocurrió. No se acepta una hora futura ni anterior al registro del envío.
+- **Courier:** el recojo exige que la guía escaneada sea la del envío (`422 GUIA_NO_COINCIDE`); los estados avanzan en orden (`409 TRANSICION_INVALIDA`); la entrega solo se cierra con foto y firma (RN-03) y un contraentrega no se entrega sin cobro confirmado (`409 COBRO_PENDIENTE`, RN-02).
+- **Imágenes:** solo JPEG o PNG reales y comprimidos (foto hasta 400 KB, firma hasta 150 KB). Se guardan en la tabla `archivos`.
 - **Privacidad:** en el seguimiento, el remitente ve el DNI de quien recibió solo con los últimos 4 dígitos.
 - **Conflictos (`409`):**
   - `ENVIO_NO_EDITABLE`: el cliente intenta cambiar o eliminar un envío que ya fue recogido.
@@ -62,11 +69,11 @@ Las apps nunca se conectan a la base: todo pasa por esta API, que valida la sesi
 
 Tablas del parcial: `usuarios`, `rutas`, `envios` y `operaciones_procesadas`. Tablas del proyecto final: `paradas`, `eventos_envio`, `evidencias`, `cobros`, `liquidaciones`, `intentos_fallidos` y `solicitudes_credito`. El esquema está en [db/esquema.sql](db/esquema.sql).
 
-La API crea las tablas y los datos de ejemplo sola la primera vez que se usa. Los cambios del proyecto final se aplican una sola vez como migración (versión 2, anotada en la tabla `migraciones`): solo agregan columnas, tablas y datos, sin borrar nada.
+La API crea las tablas y los datos de ejemplo sola la primera vez que se usa. Los cambios del proyecto final se aplican una sola vez como migraciones anotadas en la tabla `migraciones` (versión 2: roles, couriers y tablas de operación; versión 3: coordenadas de recojo y entrega, y la tabla `archivos`). Solo agregan columnas, tablas y datos, sin borrar nada. Las coordenadas son simuladas alrededor de la ciudad de origen y de destino de cada envío.
 
 **Pruebas:**
 - `npm test`: reglas de la operación, del destinatario y de los datos de ejemplo.
-- `pruebas/probar-operacion.js` y `pruebas/probar-cliente.js`: recorren la API de punta a punta. Se ejecutan contra una **copia** de la base (branch de Neon), nunca contra la real: `node --env-file=.env servidor-local.js` y luego `node pruebas/probar-cliente.js http://localhost:3000/api`.
+- `pruebas/probar-operacion.js`, `pruebas/probar-cliente.js` y `pruebas/probar-courier.js`: recorren la API de punta a punta. Se ejecutan contra una **copia** de la base (branch de Neon), nunca contra la real: `node --env-file=.env servidor-local.js` y luego `node pruebas/probar-cliente.js http://localhost:3000/api`.
 
 **Cuentas de ejemplo** (clave `1234`):
 - Clientes: `cliente@rutalog.pe`, `cliente2@rutalog.pe`

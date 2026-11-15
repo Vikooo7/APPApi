@@ -178,3 +178,28 @@ CREATE TABLE IF NOT EXISTS solicitudes_credito (
   codigo_banco           TEXT,
   creado_en              TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- App Courier (versión 3): coordenadas de recojo y entrega, imágenes (foto y firma) y orden manual de paradas.
+
+ALTER TABLE envios ADD COLUMN IF NOT EXISTS origen_latitud NUMERIC(9, 6);
+
+ALTER TABLE envios ADD COLUMN IF NOT EXISTS origen_longitud NUMERIC(9, 6);
+
+ALTER TABLE envios ADD COLUMN IF NOT EXISTS destino_latitud NUMERIC(9, 6);
+
+ALTER TABLE envios ADD COLUMN IF NOT EXISTS destino_longitud NUMERIC(9, 6);
+
+CREATE TABLE IF NOT EXISTS archivos (
+  id         UUID PRIMARY KEY,
+  envio_id   INTEGER NOT NULL REFERENCES envios (id),
+  tipo       TEXT NOT NULL CHECK (tipo IN ('foto_entrega', 'firma', 'fachada', 'comprobante')),
+  mime       TEXT NOT NULL CHECK (mime IN ('image/jpeg', 'image/png')),
+  contenido  BYTEA NOT NULL,
+  bytes      INTEGER NOT NULL,
+  creado_por INTEGER REFERENCES usuarios (id),
+  creado_en  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS archivos_envio_idx ON archivos (envio_id);
+
+ALTER TABLE paradas ADD COLUMN IF NOT EXISTS manual BOOLEAN NOT NULL DEFAULT FALSE;

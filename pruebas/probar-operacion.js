@@ -33,6 +33,9 @@ async function entrar(correo) {
 }
 
 const uuid = () => crypto.randomUUID();
+// Imagen JPEG mínima (1×1 px) para la foto de la fachada.
+const JPEG =
+  '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=';
 
 (async () => {
   console.log(`API: ${API}`);
@@ -150,16 +153,20 @@ const uuid = () => crypto.randomUUID();
     const futuro = await llamar('POST', `/envios/${enReparto.id}/fallido`, tokenDueno, {
       uuidOperacion: uuid(),
       motivo: 'ausente',
+      foto: JPEG,
       fechaHora: new Date(Date.now() + 86400000).toISOString()
     });
     comprobar('no acepta un evento con hora futura (422)', futuro.http === 422 && futuro.datos.codigo === 'FECHA_INVALIDA', futuro.datos);
+    const sinFoto = await llamar('POST', `/envios/${enReparto.id}/fallido`, tokenDueno, { uuidOperacion: uuid(), motivo: 'ausente' });
+    comprobar('sin foto de la fachada no se registra (422)', sinFoto.http === 422 && sinFoto.datos.codigo === 'IMAGEN_REQUERIDA', sinFoto.datos);
 
     let envio = enReparto;
     for (let intento = 1; intento <= 3; intento += 1) {
-      const hora = new Date(Date.now() - (4 - intento) * 3600 * 1000).toISOString();
+      const hora = new Date(Date.now() - (4 - intento) * 10 * 60 * 1000).toISOString();
       const r = await llamar('POST', `/envios/${envio.id}/fallido`, tokenDueno, {
         uuidOperacion: uuid(),
         motivo: 'ausente',
+        foto: JPEG,
         fechaHora: hora,
         latitud: -12.0464,
         longitud: -77.0428

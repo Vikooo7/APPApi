@@ -4,9 +4,12 @@ const { asegurarEsquema } = require('./esquema');
 const { rutasAuth, requiereSesion, error } = require('./auth');
 const { rutasEnvios } = require('./envios');
 const { rutasOperacion } = require('./operacion');
+const { rutasCourier } = require('./courier');
+const { rutasArchivos } = require('./archivos');
 
 const app = express();
-app.use(express.json({ limit: '100kb' }));
+// Hasta 3 MB: la App Courier envía la foto de la entrega y la firma (ya comprimidas) en el cuerpo.
+app.use(express.json({ limit: '3mb' }));
 
 // Para la prueba "simular error del servidor": la app envía este encabezado desde la pantalla
 // de sincronización y la API responde 503 sin tocar la base de datos.
@@ -58,6 +61,10 @@ app.get('/api/rutas', requiereSesion, async (req, res, next) => {
 
 // App Admin: couriers, asignaciones y entregas fallidas (operador o administrador).
 app.use('/api', rutasOperacion);
+
+// App Courier: ruta del día, avances, entrega con foto y firma; y las imágenes guardadas.
+app.use('/api', rutasCourier);
+app.use('/api', rutasArchivos);
 
 app.use((req, res, next) => {
   next(error(404, 'RUTA_NO_ENCONTRADA', `No existe ${req.method} ${req.path}`));
