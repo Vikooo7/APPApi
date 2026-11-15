@@ -79,7 +79,9 @@ const uuid = () => crypto.randomUUID();
   comprobar('no supera la capacidad de 30 paradas (422)', lleno.http === 422 && lleno.datos.codigo === 'CAPACIDAD_EXCEDIDA', lleno.datos);
 
   console.log('Compatibilidad con la App Admin del parcial');
-  const enCurso = envios.find((e) => e.estado === 'recogido' && e.courierId);
+  // Se relee del servidor: la asignación de arriba pudo cambiar su versión.
+  const elegido = envios.find((e) => e.estado === 'recogido' && e.courierId && !asignacion.envioIds.includes(e.id));
+  const enCurso = (await llamar('GET', `/envios/${elegido.id}`, admin)).datos;
   const viejo = await llamar('PUT', `/envios/${enCurso.id}`, admin, {
     uuidOperacion: uuid(),
     estado: 'en_transito',

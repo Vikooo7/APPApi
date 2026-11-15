@@ -15,14 +15,20 @@ Las apps nunca se conectan a la base: todo pasa por esta API, que valida la sesi
 |---|---|---|---|
 | `GET` | `/api/health` | Público | Comprueba que la API está activa |
 | `POST` | `/api/auth/login` | Público | Valida correo y clave; devuelve `token` y `usuario` |
-| `GET` | `/api/envios` | Con sesión | Cliente: solo sus envíos. Administrador: todos. Filtros `?estado=` y `?ruta=` |
+| `GET` | `/api/envios` | Con sesión | Cliente: sus envíos. Courier: los asignados. Operación: todos. Filtros `?estado=`, `?ruta=`, `?zona=` y `?courierId=` |
 | `GET` | `/api/envios/{id}` | Con sesión | Un envío |
-| `POST` | `/api/envios` | Cliente | Registra un envío (`uuidOperacion`, `uuid`, `numeroGuia`, `ruta`, `pesoKg`) |
-| `PUT` | `/api/envios/{id}` | Cliente / Administrador | Cliente: ruta y peso si sigue pendiente. Administrador: estado y transportista |
-| `DELETE` | `/api/envios/{id}?uuidOperacion=` | Cliente / Administrador | Elimina un envío pendiente |
-| `GET` | `/api/rutas` | Con sesión | Rutas activas, tiempo estimado y tarifa por kg |
+| `GET` | `/api/envios/{guia}` | Con sesión | Seguimiento: envío, eventos con hora y lugar, intentos fallidos y prueba de entrega |
+| `POST` | `/api/envios` | Cliente | Registra un envío (`uuidOperacion`, `uuid`, `numeroGuia`, `ruta`, `pesoKg` y, opcional, destinatario y `montoContraentrega`) |
+| `PUT` | `/api/envios/{id}` | Cliente / Operación | Cliente: ruta, peso, destinatario y monto si sigue pendiente. Operación: estado y courier (`courierId`) |
+| `DELETE` | `/api/envios/{id}?uuidOperacion=` | Cliente / Operación | Elimina un envío pendiente |
+| `POST` | `/api/envios/{id}/fallido` | Courier | Entrega fallida con motivo; al tercer intento el envío pasa a `devuelto` |
+| `POST` | `/api/envios/{id}/reprogramar` | Operación | La entrega fallida vuelve a reparto (`reprogramado`), opcionalmente con otro courier |
+| `GET` | `/api/rutas` | Con sesión | Rutas activas, tiempo estimado, tarifa por kg y zona |
+| `GET` | `/api/couriers` | Operación | Couriers con zona, capacidad y paradas activas |
+| `POST` | `/api/asignaciones` | Operación | Asigna varios envíos a un courier (todo o nada, máximo 30 paradas) |
+| `GET` | `/api/fallidas` | Operación | Entregas fallidas con su historial de intentos |
 
-Las rutas con sesión exigen el encabezado `Authorization: Bearer <token>`.
+"Operación" son los roles `operador` y `administrador` (App Admin). Las rutas con sesión exigen el encabezado `Authorization: Bearer <token>`.
 
 ## Reglas que valida el servidor
 
@@ -32,12 +38,17 @@ Las rutas con sesión exigen el encabezado `Authorization: Bearer <token>`.
 - **Peso:** debe ser mayor que 0 y como máximo 30 000 kg (`422`).
 - **Costo:** lo calcula la API (`pesoKg × tarifaPorKg` de la ruta); no se confía en el que envíe la app.
 - **Duplicados (RF15):** cada escritura lleva un `uuidOperacion`. Si llega repetido, la API devuelve la respuesta guardada con `"duplicado": true` y no repite el cambio. Además, `envios.uuid` es único.
-- **Administrador (estado y transportista):** fuera de `pendiente`, el envío debe tener transportista (`422 SIN_TRANSPORTISTA`).
+- **Operación (estado y courier):** fuera de `pendiente`, el envío debe tener courier (`422 SIN_TRANSPORTISTA`). El courier debe existir (`422 COURIER_INVALIDO`) y tener cupo (`422 CAPACIDAD_EXCEDIDA`, 30 paradas por defecto).
+- **Destinatario y contraentrega:** nombre y dirección van juntos, el celular tiene 9 dígitos y empieza con 9, el monto va de 0 a S/ 10 000 y no se cobra contraentrega sin destinatario (`422`).
+- **Entregas fallidas (RN-05):** al tercer intento el envío pasa a `devuelto` y queda cerrado.
+- **Hora real (RN-06):** cada cambio de estado se guarda en `eventos_envio` con la hora en que ocurrió.
+- **Privacidad:** en el seguimiento, el remitente ve el DNI de quien recibió solo con los últimos 4 dígitos.
 - **Conflictos (`409`):**
   - `ENVIO_NO_EDITABLE`: el cliente intenta cambiar o eliminar un envío que ya fue recogido.
   - `VERSION_DESACTUALIZADA`: el envío cambió en el servidor después de la última sincronización.
-  - `ESTADO_NO_RETROCEDE`: el administrador intenta volver a un estado anterior.
-  - `ENVIO_CERRADO`: el administrador intenta cambiar un envío ya entregado.
+  - `ESTADO_NO_RETROCEDE`: la operación intenta volver a un estado anterior.
+  - `ENVIO_CERRADO`: el envío ya fue entregado o devuelto.
+  - `ENTREGA_FALLIDA`: hay que reprogramar la entrega antes de cambiar su estado.
   - La respuesta incluye `envio`, con el estado real en el servidor.
 - **Número de guía:** se respeta el que generó la app si está libre; si ya existe, la API asigna otro.
 
@@ -49,12 +60,19 @@ Las rutas con sesión exigen el encabezado `Authorization: Bearer <token>`.
 
 ## Base de datos remota
 
-Tablas: `usuarios`, `rutas`, `envios` y `operaciones_procesadas`. El esquema está en [db/esquema.sql](db/esquema.sql).
-La API crea las tablas y los datos de ejemplo sola la primera vez que se usa: 3 usuarios, 27 rutas y 40 envíos (10 iniciales y 30 adicionales, para que la App Operador consulte más de 30).
+Tablas del parcial: `usuarios`, `rutas`, `envios` y `operaciones_procesadas`. Tablas del proyecto final: `paradas`, `eventos_envio`, `evidencias`, `cobros`, `liquidaciones`, `intentos_fallidos` y `solicitudes_credito`. El esquema está en [db/esquema.sql](db/esquema.sql).
 
-**Pruebas:** `npm test` revisa las reglas del administrador y los datos de ejemplo.
+La API crea las tablas y los datos de ejemplo sola la primera vez que se usa. Los cambios del proyecto final se aplican una sola vez como migración (versión 2, anotada en la tabla `migraciones`): solo agregan columnas, tablas y datos, sin borrar nada.
 
-**Cuentas de ejemplo** (clave `1234`): `cliente@rutalog.pe`, `cliente2@rutalog.pe` y `operador@rutalog.pe` (administrador).
+**Pruebas:**
+- `npm test`: reglas de la operación, del destinatario y de los datos de ejemplo.
+- `pruebas/probar-operacion.js` y `pruebas/probar-cliente.js`: recorren la API de punta a punta. Se ejecutan contra una **copia** de la base (branch de Neon), nunca contra la real: `node --env-file=.env servidor-local.js` y luego `node pruebas/probar-cliente.js http://localhost:3000/api`.
+
+**Cuentas de ejemplo** (clave `1234`):
+- Clientes: `cliente@rutalog.pe`, `cliente2@rutalog.pe`
+- Administrador: `operador@rutalog.pe`
+- Operador: `supervisor@rutalog.pe`
+- Couriers: `courier1@rutalog.pe` … `courier10@rutalog.pe`
 
 ## Prueba de error del servidor
 

@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { validarCambioAdministrador } = require('../src/envios');
+const { validarCambioAdministrador, leerDestinatario } = require('../src/envios');
 const { ENVIOS, ENVIOS_ADICIONALES, RUTAS, USUARIOS, COURIERS, ZONAS, generarGuia } = require('../src/esquema');
 
 const TRANSPORTISTA = 'Carlos Quispe Mamani · AQP-482';
@@ -84,6 +84,50 @@ test('una entrega reprogramada vuelve a reparto pero no retrocede a recogido', (
 test('el operador no marca fallido a mano ni cambia un envío devuelto', () => {
   rechaza(() => validarCambioAdministrador(envio('en_reparto', TRANSPORTISTA), 'fallido', TRANSPORTISTA), 422, 'ESTADO_INVALIDO');
   rechaza(() => validarCambioAdministrador(envio('devuelto', TRANSPORTISTA), 'devuelto', 'Otro · ABC-123'), 409, 'ENVIO_CERRADO');
+});
+
+test('el destinatario es opcional: la App Cliente del parcial sigue registrando', () => {
+  assert.deepEqual(leerDestinatario({ ruta: 'Lima → Ica', pesoKg: 3 }), {
+    nombre: null,
+    telefono: null,
+    direccion: null,
+    monto: 0
+  });
+});
+
+test('destinatario y contraentrega válidos', () => {
+  const d = leerDestinatario({
+    destinatarioNombre: '  Carlos Mendoza ',
+    destinatarioTelefono: '987654321',
+    destinatarioDireccion: 'Av. Huancavelica 512, El Tambo',
+    montoContraentrega: 189.456
+  });
+  assert.equal(d.nombre, 'Carlos Mendoza');
+  assert.equal(d.monto, 189.46);
+});
+
+test('reglas del destinatario y del monto (422)', () => {
+  const base = { destinatarioNombre: 'Ana', destinatarioDireccion: 'Jr. Lima 120' };
+  rechaza(() => leerDestinatario({ destinatarioNombre: 'Ana' }), 422, 'DESTINATARIO_INVALIDO');
+  rechaza(() => leerDestinatario({ ...base, destinatarioTelefono: '12345' }), 422, 'TELEFONO_INVALIDO');
+  rechaza(() => leerDestinatario({ ...base, montoContraentrega: -5 }), 422, 'MONTO_INVALIDO');
+  rechaza(() => leerDestinatario({ ...base, montoContraentrega: 20000 }), 422, 'MONTO_INVALIDO');
+  rechaza(() => leerDestinatario({ montoContraentrega: 50 }), 422, 'DESTINATARIO_INVALIDO');
+});
+
+test('al editar, lo que no llega se conserva', () => {
+  const actual = {
+    destinatario_nombre: 'Ana',
+    destinatario_telefono: '912345678',
+    destinatario_direccion: 'Jr. Lima 120',
+    monto_contraentrega: '45.00'
+  };
+  assert.deepEqual(leerDestinatario({ pesoKg: 4 }, actual), {
+    nombre: 'Ana',
+    telefono: '912345678',
+    direccion: 'Jr. Lima 120',
+    monto: 45
+  });
 });
 
 test('cada transportista de los datos de ejemplo es un courier registrado', () => {

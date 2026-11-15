@@ -7,8 +7,7 @@ const rutasEnvios = express.Router();
 
 // Flujo normal del envío. "pendiente" es el REGISTRADO de la ficha del proyecto final.
 const ESTADOS = ['pendiente', 'recogido', 'en_transito', 'en_reparto', 'entregado'];
-// Fuera del flujo: los registra el courier (fallido) o el operador (reprogramado); devuelto tras 3 intentos.
-const ESTADOS_ENTREGA_FALLIDA = ['fallido', 'reprogramado', 'devuelto'];
+// Fuera del flujo: fallido lo registra el courier, reprogramado el operador y devuelto llega al tercer intento.
 const ESTADOS_CERRADOS = ['entregado', 'devuelto'];
 const MAX_INTENTOS = 3;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -130,6 +129,50 @@ function validarPeso(valor) {
     throw error(422, 'PESO_INVALIDO', 'El peso máximo por envío es 30 000 kg.');
   }
   return Math.round(peso * 100) / 100;
+}
+
+const MONTO_CONTRAENTREGA_MAXIMO = 10000;
+const TELEFONO = /^9\d{8}$/;
+
+/**
+ * HU-R01: destinatario y monto contraentrega. Son opcionales para que la App Cliente del parcial
+ * (que no los envía) siga registrando; si llegan, se validan. [actual] es la fila al editar.
+ */
+function leerDestinatario(body, actual = {}) {
+  const texto = (valor, anterior) =>
+    valor === undefined ? anterior ?? null : String(valor ?? '').trim() || null;
+
+  const nombre = texto(body?.destinatarioNombre, actual.destinatario_nombre);
+  const telefono = texto(body?.destinatarioTelefono, actual.destinatario_telefono);
+  const direccion = texto(body?.destinatarioDireccion, actual.destinatario_direccion);
+  const monto =
+    body?.montoContraentrega === undefined || body?.montoContraentrega === null
+      ? Number(actual.monto_contraentrega ?? 0)
+      : Number(body.montoContraentrega);
+
+  if (nombre && nombre.length > 80) {
+    throw error(422, 'DESTINATARIO_INVALIDO', 'El nombre del destinatario admite hasta 80 caracteres.');
+  }
+  if (direccion && direccion.length > 160) {
+    throw error(422, 'DESTINATARIO_INVALIDO', 'La dirección admite hasta 160 caracteres.');
+  }
+  if ((nombre && !direccion) || (direccion && !nombre)) {
+    throw error(422, 'DESTINATARIO_INVALIDO', 'Indica el nombre y la dirección del destinatario.');
+  }
+  if (telefono && !TELEFONO.test(telefono)) {
+    throw error(422, 'TELEFONO_INVALIDO', 'El celular del destinatario debe tener 9 dígitos y empezar con 9.');
+  }
+  if (!Number.isFinite(monto) || monto < 0) {
+    throw error(422, 'MONTO_INVALIDO', 'El monto a cobrar no puede ser negativo.');
+  }
+  if (monto > MONTO_CONTRAENTREGA_MAXIMO) {
+    throw error(422, 'MONTO_INVALIDO', 'El monto contraentrega máximo es S/ 10 000.');
+  }
+  // RN-02: el courier cobra en la puerta, así que necesita a quién y dónde cobrar.
+  if (monto > 0 && !nombre) {
+    throw error(422, 'DESTINATARIO_INVALIDO', 'Para cobrar contraentrega indica el destinatario.');
+  }
+  return { nombre, telefono, direccion, monto: Math.round(monto * 100) / 100 };
 }
 
 async function buscarRuta(bd, nombre) {
@@ -300,22 +343,75 @@ rutasEnvios.get('/', async (req, res, next) => {
   }
 });
 
-/** GET /api/envios/:id */
+/**
+ * GET /api/envios/:id → el envío.
+ * GET /api/envios/:guia (por ejemplo RLP-26-300025-0) → seguimiento (HU-R02): el envío, sus eventos
+ * con hora y lugar, los intentos fallidos y la prueba de entrega (foto, firma, quién recibió y hora).
+ */
 rutasEnvios.get('/:id', async (req, res, next) => {
   try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id)) {
-      throw error(400, 'ID_INVALIDO', 'El identificador del envío no es válido.');
-    }
-    const { rows } = await consulta('SELECT * FROM envios WHERE id = $1 AND NOT eliminado', [id]);
+    const parametro = String(req.params.id);
+    const porGuia = !/^\d+$/.test(parametro);
+    const { rows } = porGuia
+      ? await consulta('SELECT * FROM envios WHERE numero_guia = $1 AND NOT eliminado', [parametro.trim().toUpperCase()])
+      : await consulta('SELECT * FROM envios WHERE id = $1 AND NOT eliminado', [Number(parametro)]);
     const envio = rows[0];
     if (!envio) {
-      throw error(404, 'NO_ENCONTRADO', 'El envío no existe en el servidor.');
+      throw error(404, 'NO_ENCONTRADO', porGuia ? 'No existe un envío con esa guía.' : 'El envío no existe en el servidor.');
     }
     if (!puedeVer(req, envio)) {
       throw error(403, 'SIN_PERMISO', 'Este envío pertenece a otro cliente.');
     }
-    res.json(aJson(envio));
+    if (!porGuia) {
+      return res.json(aJson(envio));
+    }
+
+    const [eventos, intentos, evidencia] = await Promise.all([
+      consulta(
+        `SELECT estado, fecha_hora_evento, latitud, longitud FROM eventos_envio
+         WHERE envio_id = $1 ORDER BY fecha_hora_evento, registrado_en`,
+        [envio.id]
+      ),
+      consulta(
+        'SELECT numero, motivo, foto_url, fecha FROM intentos_fallidos WHERE envio_id = $1 ORDER BY numero',
+        [envio.id]
+      ),
+      consulta(
+        'SELECT foto_url, firma_url, recibe_nombre, recibe_dni, fecha_hora, latitud, longitud FROM evidencias WHERE envio_id = $1',
+        [envio.id]
+      )
+    ]);
+    const coordenada = (v) => (v === null || v === undefined ? null : Number(v));
+    const prueba = evidencia.rows[0];
+
+    res.json({
+      envio: aJson(envio),
+      registradoEn: envio.creado_en,
+      eventos: eventos.rows.map((e) => ({
+        estado: e.estado,
+        fechaHora: e.fecha_hora_evento,
+        latitud: coordenada(e.latitud),
+        longitud: coordenada(e.longitud)
+      })),
+      intentosFallidos: intentos.rows.map((i) => ({
+        numero: i.numero,
+        motivo: i.motivo,
+        fotoUrl: i.foto_url,
+        fecha: i.fecha
+      })),
+      // Ética del caso: el DNI de quien recibe no se comparte completo con el remitente.
+      pruebaEntrega: prueba
+        ? {
+            fotoUrl: prueba.foto_url,
+            firmaUrl: prueba.firma_url,
+            recibeNombre: prueba.recibe_nombre,
+            recibeDni: esOperacion(req) ? prueba.recibe_dni : `****${String(prueba.recibe_dni).slice(-4)}`,
+            fechaHora: prueba.fecha_hora,
+            latitud: coordenada(prueba.latitud),
+            longitud: coordenada(prueba.longitud)
+          }
+        : null
+    });
   } catch (e) {
     next(e);
   }
@@ -340,6 +436,7 @@ rutasEnvios.post('/', (req, res, next) => {
 
     const pesoKg = validarPeso(req.body?.pesoKg);
     const ruta = await buscarRuta(bd, req.body?.ruta);
+    const destinatario = leerDestinatario(req.body);
 
     // La guía que generó la app se respeta si está libre; si otro envío ya la usa,
     // el servidor asigna una nueva a partir de su propio correlativo.
@@ -350,11 +447,25 @@ rutasEnvios.post('/', (req, res, next) => {
     const guiaTemporal = ocupada ? `TMP-${uuid}` : guiaPropuesta;
 
     const insertado = await bd.query(
-      `INSERT INTO envios (uuid, numero_guia, ruta, peso_kg, costo_envio, usuario_id)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [uuid, guiaTemporal, ruta.nombre, pesoKg, calcularCosto(pesoKg, ruta), req.usuario.id]
+      `INSERT INTO envios (uuid, numero_guia, ruta, peso_kg, costo_envio, usuario_id,
+                           destinatario_nombre, destinatario_telefono, destinatario_direccion, monto_contraentrega)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+      [
+        uuid,
+        guiaTemporal,
+        ruta.nombre,
+        pesoKg,
+        calcularCosto(pesoKg, ruta),
+        req.usuario.id,
+        destinatario.nombre,
+        destinatario.telefono,
+        destinatario.direccion,
+        destinatario.monto
+      ]
     );
     let envio = insertado.rows[0];
+    // Primer evento de la línea de tiempo del seguimiento (HU-R02).
+    await registrarEvento(bd, envio.id, 'pendiente', req.usuario.id);
 
     if (ocupada) {
       const corregido = await bd.query(
@@ -432,10 +543,23 @@ rutasEnvios.put('/:id', (req, res, next) => {
       }
       const pesoKg = validarPeso(req.body?.pesoKg ?? envio.peso_kg);
       const ruta = await buscarRuta(bd, req.body?.ruta ?? envio.ruta);
+      // Lo que no llegue en el cuerpo se conserva (la App Cliente del parcial solo envía ruta y peso).
+      const destinatario = leerDestinatario(req.body, envio);
       actualizado = await bd.query(
-        `UPDATE envios SET ruta = $1, peso_kg = $2, costo_envio = $3, version = version + 1, actualizado_en = NOW()
-         WHERE id = $4 RETURNING *`,
-        [ruta.nombre, pesoKg, calcularCosto(pesoKg, ruta), envio.id]
+        `UPDATE envios SET ruta = $1, peso_kg = $2, costo_envio = $3,
+                destinatario_nombre = $4, destinatario_telefono = $5, destinatario_direccion = $6,
+                monto_contraentrega = $7, version = version + 1, actualizado_en = NOW()
+         WHERE id = $8 RETURNING *`,
+        [
+          ruta.nombre,
+          pesoKg,
+          calcularCosto(pesoKg, ruta),
+          destinatario.nombre,
+          destinatario.telefono,
+          destinatario.direccion,
+          destinatario.monto,
+          envio.id
+        ]
       );
     }
 
@@ -573,6 +697,7 @@ rutasEnvios.post('/:id/reprogramar', (req, res, next) => {
 module.exports = {
   rutasEnvios,
   validarCambioAdministrador,
+  leerDestinatario,
   aJson,
   ejecutarUnaVez,
   esOperacion,
