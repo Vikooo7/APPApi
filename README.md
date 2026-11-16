@@ -15,6 +15,8 @@ Las apps nunca se conectan a la base: todo pasa por esta API, que valida la sesi
 |---|---|---|---|
 | `GET` | `/api/health` | Público | Comprueba que la API está activa |
 | `POST` | `/api/auth/login` | Público | Valida correo y clave; devuelve `token` y `usuario` |
+| `POST` | `/api/auth/registro` | Público | Crea una cuenta **de cliente** (`nombre`, `correo`, `clave` de 8+ caracteres con letras y números). 201 con `token` y `usuario`; 409 `CORREO_REGISTRADO` si el correo ya existe. Couriers y operadores los crea la empresa |
+| `POST` | `/api/auth/social` | Público | Ingreso con Google, Facebook o GitHub vía Firebase: recibe `idToken` y `app` (`cliente`, `admin`, `courier`). Valida la firma del token con las claves públicas de Google. Cuenta existente: entra si el correo está verificado (409 `CORREO_NO_VERIFICADO` si no). Sin cuenta: la App Cliente la crea (201); Admin y Courier reciben 403 `SIN_CUENTA`. Proyecto: `FIREBASE_PROJECT_ID` |
 | `GET` | `/api/envios` | Con sesión | Cliente: sus envíos. Courier: los asignados. Operación: todos. Filtros `?estado=`, `?ruta=`, `?zona=` y `?courierId=` |
 | `GET` | `/api/envios/{id}` | Con sesión | Un envío |
 | `GET` | `/api/envios/{guia}` | Con sesión | Seguimiento: envío, eventos con hora y lugar, intentos fallidos y prueba de entrega |

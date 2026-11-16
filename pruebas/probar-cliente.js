@@ -142,6 +142,31 @@ const guiaNueva = () => `RLP-26-${String(Math.floor(700000 + Math.random() * 999
   });
   comprobar('ya recogido, el cliente no puede editarlo (409)', tarde.http === 409 && tarde.datos.codigo === 'ENVIO_NO_EDITABLE', tarde.datos);
 
+  console.log('Crear cuenta de cliente');
+  const correoNuevo = `prueba.${Date.now()}@gmail.com`;
+  const debil = await llamar('POST', '/auth/registro', null, { nombre: 'Ana Prueba', correo: correoNuevo, clave: '1234' });
+  comprobar('una contraseña débil se rechaza (422)', debil.http === 422 && debil.datos.codigo === 'CLAVE_DEBIL', debil.datos);
+  const registro = await llamar('POST', '/auth/registro', null, {
+    nombre: 'Ana Prueba',
+    correo: correoNuevo.toUpperCase(),
+    clave: 'envios2026',
+    rol: 'administrador'
+  });
+  comprobar(
+    'la cuenta se crea siempre como cliente, con el correo en minúsculas (201)',
+    registro.http === 201 && registro.datos.usuario.rol === 'cliente' && registro.datos.usuario.correo === correoNuevo && !!registro.datos.token,
+    registro.datos
+  );
+  const correoRepetido = await llamar('POST', '/auth/registro', null, { nombre: 'Otra', correo: correoNuevo, clave: 'otra12345' });
+  comprobar('el mismo correo no se registra dos veces (409)', correoRepetido.http === 409 && correoRepetido.datos.codigo === 'CORREO_REGISTRADO', correoRepetido.datos);
+  const yaExiste = await llamar('POST', '/auth/registro', null, { nombre: 'Intruso', correo: 'courier1@rutalog.pe', clave: 'intruso123' });
+  comprobar('no se puede tomar el correo de un courier (409)', yaExiste.http === 409, yaExiste.datos);
+  const entrada = await llamar('POST', '/auth/login', null, { correo: correoNuevo, clave: 'envios2026' });
+  comprobar('la cuenta nueva inicia sesión', entrada.http === 200 && entrada.datos.usuario.rol === 'cliente', entrada.datos);
+  const vacia = await llamar('GET', '/envios', registro.datos.token);
+  const listaVacia = vacia.datos?.datos;
+  comprobar('la cuenta nueva no ve envíos de otros clientes', vacia.http === 200 && Array.isArray(listaVacia) && listaVacia.length === 0, vacia.datos);
+
   console.log(`\n${pasos - fallos} de ${pasos} comprobaciones correctas.`);
   process.exit(fallos ? 1 : 0);
 })().catch((e) => {
