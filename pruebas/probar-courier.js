@@ -3,6 +3,8 @@
 //      node pruebas/probar-courier.js [http://localhost:3000/api]
 // Usa las cuentas de ejemplo (clave 1234). No ejecutar contra la base real: crea y entrega envíos.
 
+const { pagarEnvio } = require('./pagar');
+
 const API = process.argv[2] || 'http://localhost:3000/api';
 const BASE = API.replace(/\/api$/, '');
 let pasos = 0;
@@ -59,6 +61,9 @@ const guiaNueva = () => `RLP-26-${String(Math.floor(800000 + Math.random() * 999
   const contraentrega = (
     await llamar('POST', '/envios', cliente, { ...base, uuidOperacion: uuid(), uuid: uuid(), numeroGuia: guiaNueva(), montoContraentrega: 50 })
   ).datos;
+  // Desde la versión 5 un envío se paga con QR antes de asignarlo (RF-R02).
+  await pagarEnvio(API, cliente, prepagado);
+  await pagarEnvio(API, cliente, contraentrega);
   comprobar('los envíos nuevos traen coordenadas de recojo y entrega', prepagado.origenLatitud !== null && prepagado.destinoLatitud !== null, prepagado);
 
   const couriers = (await llamar('GET', '/couriers', supervisor)).datos.datos;
@@ -82,6 +87,13 @@ const guiaNueva = () => `RLP-26-${String(Math.floor(800000 + Math.random() * 999
     ruta.datos.kmOptimizado <= ruta.datos.kmOrdenRegistro
   );
   comprobar('un cliente no puede pedir la ruta del courier (403)', (await llamar('GET', '/courier/ruta', cliente)).http === 403);
+  const recojoNuevo = paradas.find((p) => p.envio.id === prepagado.id);
+  comprobar(
+    'en el recojo el courier no recibe nombre, celular ni dirección del destinatario (ética)',
+    recojoNuevo && recojoNuevo.envio.destinatarioNombre === null && recojoNuevo.envio.destinatarioTelefono === null &&
+      recojoNuevo.envio.destinatarioDireccion === null,
+    recojoNuevo?.envio
+  );
 
   console.log('Reordenar a mano (RF-C02)');
   const invertido = [...paradas].reverse().map((p) => ({ envioId: p.envio.id, tipo: p.tipo }));
@@ -139,6 +151,17 @@ const guiaNueva = () => `RLP-26-${String(Math.floor(800000 + Math.random() * 999
   comprobar('"entregado" no se marca sin evidencia (422)', directo.http === 422 && directo.datos.codigo === 'USAR_EVIDENCIA', directo.datos);
   const rutaReparto = await llamar('GET', '/courier/ruta', token);
   comprobar('ya en reparto, pasa a ser parada de entrega', rutaReparto.datos.paradas.some((p) => p.envio.id === prepagado.id && p.tipo === 'entrega'));
+  const entregaNueva = rutaReparto.datos.paradas.find((p) => p.envio.id === prepagado.id);
+  comprobar(
+    'en la entrega sí ve nombre, celular y dirección del destinatario',
+    entregaNueva?.envio.destinatarioNombre === 'Carlos Mendoza' && entregaNueva?.envio.destinatarioTelefono === '987654321',
+    entregaNueva?.envio
+  );
+  comprobar(
+    'mientras va en camino tampoco los ve',
+    rutaReparto.datos.enCamino.every((e) => e.destinatarioNombre === null && e.destinatarioTelefono === null),
+    rutaReparto.datos.enCamino
+  );
 
   console.log('Entrega con foto y firma (RF-C04, RN-03)');
   const evidencia = { foto: JPEG, firma: PNG, recibeNombre: 'Carlos Mendoza', recibeDni: '45124512', latitud: -12.061, longitud: -75.205 };
@@ -159,6 +182,18 @@ const guiaNueva = () => `RLP-26-${String(Math.floor(800000 + Math.random() * 999
   comprobar('sin cobro confirmado no se entrega un contraentrega (409)', sinCobro.http === 409 && sinCobro.datos.codigo === 'COBRO_PENDIENTE', sinCobro.datos);
   const fallida = await llamar('POST', `/envios/${contraentrega.id}/fallido`, token, { uuidOperacion: uuid(), motivo: 'ausente', foto: JPEG, ...gps });
   comprobar('se registra como entrega fallida con foto de la fachada', fallida.http === 201 && fallida.datos.estado === 'fallido', fallida.datos);
+  comprobar(
+    'se avisa al destinatario por SMS (simulado) con el celular enmascarado (RF-C07)',
+    fallida.datos.avisoDestinatario?.canal === 'sms' && fallida.datos.avisoDestinatario?.destino === '*****4321',
+    fallida.datos.avisoDestinatario
+  );
+  comprobar('tras la fallida el courier ya no ve los datos del destinatario', fallida.datos.destinatarioTelefono === null, fallida.datos);
+  const segFallida = await llamar('GET', `/envios/${contraentrega.numeroGuia}`, cliente);
+  comprobar(
+    'el remitente ve en el seguimiento el aviso enviado para reprogramar',
+    segFallida.datos.avisos?.length === 1 && /reprogramar/.test(segFallida.datos.avisos[0].mensaje),
+    segFallida.datos.avisos
+  );
 
   console.log('El cliente ve la prueba de entrega (HU-R02)');
   const seg = await llamar('GET', `/envios/${prepagado.numeroGuia}`, cliente);

@@ -37,6 +37,29 @@ Las apps nunca se conectan a la base: todo pasa por esta API, que valida la sesi
 
 "Operación" son los roles `operador` y `administrador` (App Admin). Las rutas con sesión exigen el encabezado `Authorization: Bearer <token>`.
 
+### Pagos con Banco Andino (migración 5)
+
+| Método | Ruta | Quién | Qué hace |
+|---|---|---|---|
+| `POST` | `/api/pagos/qr` | Remitente (`tipo: envio`), courier (`tipo: contraentrega`) | Pide al banco un cobro QR por el monto exacto; si hay uno vigente, devuelve el mismo |
+| `GET` | `/api/pagos/:id` | Los mismos | Estado del cobro; si sigue pendiente, pregunta al banco y verifica la operación (RNF-05) |
+| `POST` | `/api/envios/:id/cobro-offline` | Courier | Cobro sin señal (RF-C06): n.º de operación + foto del comprobante → `PENDIENTE_CONFIRMACION` |
+| `POST` | `/api/pagos/verificar` | Todos | Verifica con el banco los cobros pendientes que le corresponden |
+| `GET` | `/api/cobros` | Remitente, operación | Cobros contraentrega con guía y n.º de operación (RF-R04) |
+| `GET` | `/api/usuarios/yo`, `PUT /api/usuarios/yo/cuenta-banco` | Remitente | Cuenta de Banco Andino para recibir la liquidación (se valida con el banco) |
+| `GET` | `/api/liquidaciones` | Remitente (las suyas), operación (pendiente + historial) | RF-R05, RF-O03 |
+| `POST` | `/api/liquidaciones/calcular` | Operación | Corte: una liquidación por remitente con cobros CONFIRMADOS (RN-04) |
+| `POST` | `/api/liquidaciones/:id/aprobar` | Administrador | El banco transfiere el neto (idempotente por `uuidOperacion`) |
+| `GET` | `/api/credito/facturacion`, `GET/POST /api/credito/solicitudes` | Administrador | Mi crédito: solo totales por mes (RN-07); decide el comité (RN-08) |
+
+Reglas nuevas: un envío registrado desde la migración 5 queda `POR_PAGAR` y no se asigna al courier hasta que el banco confirma su pago (RF-R02). El courier recibe el QR de cada entrega contraentrega con la ruta, para mostrarlo sin señal. Un cobro rechazado libera su n.º de operación.
+
+### Núcleo de Banco Andino (`/banco/...`)
+
+Es un banco simulado aparte: tablas `banco_*`, su propia clave de servidor (`x-banco-clave`, variable `BANCO_CLAVE_API`), su propio login de clientes (`BANCO_JWT_SECRET`) y la web del comité (`/banco/comite`, clave `BANCO_COMITE_CLAVE`, de prueba `comite2026`). RutaLog lo llama por HTTP desde `src/clienteBanco.js`; si el docente entrega su propio núcleo, basta con definir `BANCO_URL` y `BANCO_CLAVE_API`. La app de billetera está en el repositorio de Banco Andino.
+
+Pruebas de punta a punta de esta fase: `node pruebas/probar-pagos.js http://localhost:3100/api` (46 comprobaciones).
+
 ## Reglas que valida el servidor
 
 - **Sesión:** token JWT firmado, válido por 30 días.

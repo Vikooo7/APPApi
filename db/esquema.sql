@@ -203,3 +203,17 @@ CREATE TABLE IF NOT EXISTS archivos (
 CREATE INDEX IF NOT EXISTS archivos_envio_idx ON archivos (envio_id);
 
 ALTER TABLE paradas ADD COLUMN IF NOT EXISTS manual BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- RF-C07 (versión 4): aviso al destinatario tras una entrega fallida. El SMS es simulado:
+-- se registra qué se envió, a qué número (enmascarado) y cuándo; el remitente lo ve en el seguimiento.
+CREATE TABLE IF NOT EXISTS avisos (
+    id         SERIAL PRIMARY KEY,
+    envio_id   INTEGER NOT NULL REFERENCES envios (id),
+    motivo     TEXT NOT NULL CHECK (motivo IN ('entrega_fallida', 'devolucion')),
+    canal      TEXT NOT NULL CHECK (canal IN ('sms')),
+    destino    TEXT NOT NULL,
+    mensaje    TEXT NOT NULL,
+    enviado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS avisos_envio_idx ON avisos (envio_id);

@@ -6,10 +6,17 @@ const { rutasEnvios } = require('./envios');
 const { rutasOperacion } = require('./operacion');
 const { rutasCourier } = require('./courier');
 const { rutasArchivos } = require('./archivos');
+const { privacidadCourier } = require('./privacidad');
+const { rutasBanco } = require('./banco/rutas');
+const { rutasPagos } = require('./pagos');
 
 const app = express();
+// Vercel atiende por HTTPS detrás de un proxy: así req.protocol dice "https" (lo usa el cliente del banco).
+app.set('trust proxy', true);
 // Hasta 3 MB: la App Courier envía la foto de la entrega y la firma (ya comprimidas) en el cuerpo.
 app.use(express.json({ limit: '3mb' }));
+// El courier recibe los datos del destinatario solo mientras el envío está en reparto.
+app.use(privacidadCourier);
 
 // Para la prueba "simular error del servidor": la app envía este encabezado desde la pantalla
 // de sincronización y la API responde 503 sin tocar la base de datos.
@@ -27,8 +34,8 @@ app.get(['/', '/api', '/api/health'], (req, res) => {
   res.json({ servicio: 'RutaLog Perú API', estado: 'activo', hora: new Date().toISOString() });
 });
 
-// Crea las tablas y los datos de ejemplo la primera vez que alguien usa la API.
-app.use('/api', async (req, res, next) => {
+// Crea las tablas y los datos de ejemplo la primera vez que alguien usa la API (o el banco).
+app.use(['/api', '/banco'], async (req, res, next) => {
   try {
     await asegurarEsquema();
     next();
@@ -36,6 +43,9 @@ app.use('/api', async (req, res, next) => {
     next(e);
   }
 });
+
+// Núcleo de Banco Andino (simulado): un "banco" aparte con sus propias claves. RutaLog lo llama por HTTP.
+app.use('/banco', rutasBanco);
 
 app.use('/api/auth', rutasAuth);
 app.use('/api/envios', requiereSesion, rutasEnvios);
@@ -65,6 +75,9 @@ app.use('/api', rutasOperacion);
 // App Courier: ruta del día, avances, entrega con foto y firma; y las imágenes guardadas.
 app.use('/api', rutasCourier);
 app.use('/api', rutasArchivos);
+
+// Pagos con Banco Andino: QR del envío y del contraentrega, cobros, liquidaciones y crédito.
+app.use('/api', rutasPagos);
 
 app.use((req, res, next) => {
   next(error(404, 'RUTA_NO_ENCONTRADA', `No existe ${req.method} ${req.path}`));

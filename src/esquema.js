@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const { transaccion } = require('./db');
 const { coordenadasEnvio } = require('./rutas-optimas');
+const { PASOS_BANCO, datosBanco } = require('./banco/datos');
 
 /** Esquema de la base remota (PostgreSQL en Neon). El mismo SQL está en db/esquema.sql. */
 const TABLAS = [
@@ -302,6 +303,50 @@ const MIGRACIONES = [
       'ALTER TABLE paradas ADD COLUMN IF NOT EXISTS manual BOOLEAN NOT NULL DEFAULT FALSE'
     ],
     datos: datosVersion3
+  },
+  {
+    version: 4,
+    nombre: 'RF-C07: avisos al destinatario (SMS simulado) tras una entrega fallida',
+    pasos: [
+      `CREATE TABLE IF NOT EXISTS avisos (
+         id         SERIAL PRIMARY KEY,
+         envio_id   INTEGER NOT NULL REFERENCES envios (id),
+         motivo     TEXT NOT NULL CHECK (motivo IN ('entrega_fallida', 'devolucion')),
+         canal      TEXT NOT NULL CHECK (canal IN ('sms')),
+         destino    TEXT NOT NULL,
+         mensaje    TEXT NOT NULL,
+         enviado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+       )`,
+      'CREATE INDEX IF NOT EXISTS avisos_envio_idx ON avisos (envio_id)'
+    ],
+    datos: async () => {}
+  },
+  {
+    version: 5,
+    nombre: 'Pagos con Banco Andino: núcleo del banco, pago del envío con QR, cobro contraentrega y liquidaciones',
+    pasos: [
+      ...PASOS_BANCO,
+      // Cuenta de Banco Andino donde el remitente recibe su liquidación.
+      'ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS cuenta_banco TEXT',
+      // RF-R02: los envíos nuevos se pagan con QR; los anteriores a esta versión no lo requieren.
+      `ALTER TABLE envios ADD COLUMN IF NOT EXISTS pago_estado TEXT NOT NULL DEFAULT 'NO_REQUERIDO'
+         CHECK (pago_estado IN ('NO_REQUERIDO', 'POR_PAGAR', 'PAGADO'))`,
+      'ALTER TABLE cobros ADD COLUMN IF NOT EXISTS cobro_banco_id TEXT',
+      'ALTER TABLE cobros ADD COLUMN IF NOT EXISTS codigo_qr TEXT',
+      'ALTER TABLE cobros ADD COLUMN IF NOT EXISTS motivo_rechazo TEXT',
+      'ALTER TABLE cobros DROP CONSTRAINT IF EXISTS cobros_estado_check',
+      `ALTER TABLE cobros ADD CONSTRAINT cobros_estado_check
+         CHECK (estado IN ('POR_COBRAR', 'PENDIENTE_CONFIRMACION', 'CONFIRMADO', 'RECHAZADO', 'LIQUIDADO'))`,
+      'CREATE INDEX IF NOT EXISTS cobros_envio_idx ON cobros (envio_id, tipo)',
+      'ALTER TABLE liquidaciones ADD COLUMN IF NOT EXISTS cuenta_destino TEXT',
+      'ALTER TABLE liquidaciones ADD COLUMN IF NOT EXISTS cobros_incluidos INTEGER NOT NULL DEFAULT 0',
+      'ALTER TABLE liquidaciones ADD COLUMN IF NOT EXISTS transferida_en TIMESTAMPTZ'
+    ],
+    datos: async (bd) => {
+      await datosBanco(bd);
+      await bd.query("UPDATE usuarios SET cuenta_banco = '191-2604003-0' WHERE correo = 'cliente@rutalog.pe' AND cuenta_banco IS NULL");
+      await bd.query("UPDATE usuarios SET cuenta_banco = '191-2604004-0' WHERE correo = 'cliente2@rutalog.pe' AND cuenta_banco IS NULL");
+    }
   }
 ];
 

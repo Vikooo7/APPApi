@@ -1,5 +1,6 @@
 const express = require('express');
-const { transaccion } = require('./db');
+const { transaccion, consulta } = require('./db');
+const { crearClienteBanco } = require('./clienteBanco');
 const { error, requiereSesion } = require('./auth');
 const { leerImagen, guardarArchivo } = require('./archivos');
 const { baseDeZona, distanciaKm, ordenarParadas, longitudRecorrido } = require('./rutas-optimas');
@@ -113,6 +114,30 @@ async function construirRuta(bd, courier, inicio) {
   };
 }
 
+/**
+ * RF-C05 / RF-C06: cada entrega contraentrega lleva su cobro QR ya creado en Banco Andino. El courier lo
+ * descarga con la ruta, así puede mostrarlo en la puerta aunque allí no tenga señal. De paso se verifican
+ * con el banco los cobros que quedaron pendientes de confirmación. Si el banco no responde, la ruta sale igual.
+ */
+async function adjuntarCobros(req, ruta) {
+  const { obtenerOCrearCobro, verificarPendientes, cobroAJson } = require('./pagos');
+  const banco = crearClienteBanco(req);
+  try {
+    await verificarPendientes(banco, 'e.courier_id = $1', [req.usuario.id]);
+  } catch (e) {
+    // sin banco no se verifica ahora; se hará en la próxima sincronización
+  }
+  for (const parada of ruta.paradas) {
+    if (parada.tipo !== 'entrega' || !(parada.envio.montoContraentrega > 0)) continue;
+    try {
+      const { rows } = await consulta('SELECT * FROM envios WHERE id = $1', [parada.envio.id]);
+      parada.cobro = cobroAJson(await obtenerOCrearCobro(banco, rows[0], 'contraentrega', req.usuario.id), rows[0]);
+    } catch (e) {
+      parada.cobro = null;
+    }
+  }
+}
+
 async function courierActual(bd, req) {
   const { rows } = await bd.query("SELECT * FROM usuarios WHERE id = $1 AND rol = 'courier'", [req.usuario.id]);
   if (!rows[0]) throw error(403, 'SIN_PERMISO', 'Esta acción es de la App Courier.');
@@ -132,6 +157,7 @@ rutasCourier.get('/courier/ruta', conSesionDeCourier, async (req, res, next) => 
       const courier = await courierActual(bd, req);
       return construirRuta(bd, courier, inicioDeRuta(req, courier));
     });
+    await adjuntarCobros(req, ruta);
     res.json(ruta);
   } catch (e) {
     next(e);

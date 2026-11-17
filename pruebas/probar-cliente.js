@@ -3,6 +3,8 @@
 //      node pruebas/probar-cliente.js [http://localhost:3000/api]
 // Usa las cuentas de ejemplo (clave 1234). No ejecutar contra la base real: crea envíos.
 
+const { pagarEnvio } = require('./pagar');
+
 const API = process.argv[2] || 'http://localhost:3000/api';
 let pasos = 0;
 let fallos = 0;
@@ -121,11 +123,15 @@ const guiaNueva = () => `RLP-26-${String(Math.floor(700000 + Math.random() * 999
   console.log('El seguimiento refleja lo que hace la operación');
   const couriers = (await llamar('GET', '/couriers', supervisor)).datos.datos;
   const libre = couriers.sort((a, b) => b.disponibles - a.disponibles)[0];
+  // Desde la versión 5 el envío se paga con QR antes de asignarlo (RF-R02).
+  await pagarEnvio(API, cliente, creado.datos);
+  const pagado = (await llamar('GET', `/envios/${creado.datos.id}`, cliente)).datos;
+  comprobar('pagado con QR, el envío queda PAGADO', pagado.pagoEstado === 'PAGADO', pagado);
   const recogido = await llamar('PUT', `/envios/${creado.datos.id}`, supervisor, {
     uuidOperacion: uuid(),
     estado: 'recogido',
     courierId: libre.id,
-    version: soloRutaPeso.datos.version
+    version: pagado.version
   });
   comprobar('el operador lo pasa a recogido', recogido.http === 200, recogido.datos);
   const seg2 = await llamar('GET', `/envios/${guia}`, cliente);

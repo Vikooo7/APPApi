@@ -32,6 +32,8 @@ function aJson(fila) {
     destinatarioTelefono: fila.destinatario_telefono ?? null,
     destinatarioDireccion: fila.destinatario_direccion ?? null,
     montoContraentrega: Number(fila.monto_contraentrega ?? 0),
+    // RF-R02: POR_PAGAR hasta que Banco Andino confirma el pago del envío con QR.
+    pagoEstado: fila.pago_estado ?? 'NO_REQUERIDO',
     intentos: fila.intentos ?? 0,
     origenLatitud: numeroONulo(fila.origen_latitud),
     origenLongitud: numeroONulo(fila.origen_longitud),
@@ -374,7 +376,7 @@ rutasEnvios.get('/:id', async (req, res, next) => {
       return res.json(aJson(envio));
     }
 
-    const [eventos, intentos, evidencia] = await Promise.all([
+    const [eventos, intentos, evidencia, avisos] = await Promise.all([
       consulta(
         `SELECT estado, fecha_hora_evento, latitud, longitud FROM eventos_envio
          WHERE envio_id = $1 ORDER BY fecha_hora_evento, registrado_en`,
@@ -387,7 +389,10 @@ rutasEnvios.get('/:id', async (req, res, next) => {
       consulta(
         'SELECT foto_url, firma_url, recibe_nombre, recibe_dni, fecha_hora, latitud, longitud FROM evidencias WHERE envio_id = $1',
         [envio.id]
-      )
+      ),
+      consulta('SELECT motivo, canal, destino, mensaje, enviado_en FROM avisos WHERE envio_id = $1 ORDER BY enviado_en', [
+        envio.id
+      ])
     ]);
     const coordenada = (v) => (v === null || v === undefined ? null : Number(v));
     const prueba = evidencia.rows[0];
@@ -406,6 +411,14 @@ rutasEnvios.get('/:id', async (req, res, next) => {
         motivo: i.motivo,
         fotoUrl: i.foto_url,
         fecha: i.fecha
+      })),
+      // RF-C07: avisos enviados al destinatario (SMS simulado, celular enmascarado).
+      avisos: avisos.rows.map((a) => ({
+        motivo: a.motivo,
+        canal: a.canal,
+        destino: a.destino,
+        mensaje: a.mensaje,
+        enviadoEn: a.enviado_en
       })),
       // Ética del caso: el DNI de quien recibe no se comparte completo con el remitente.
       pruebaEntrega: prueba
@@ -459,8 +472,8 @@ rutasEnvios.post('/', (req, res, next) => {
     const insertado = await bd.query(
       `INSERT INTO envios (uuid, numero_guia, ruta, peso_kg, costo_envio, usuario_id,
                            destinatario_nombre, destinatario_telefono, destinatario_direccion, monto_contraentrega,
-                           origen_latitud, origen_longitud, destino_latitud, destino_longitud)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
+                           origen_latitud, origen_longitud, destino_latitud, destino_longitud, pago_estado)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'POR_PAGAR') RETURNING *`,
       [
         uuid,
         guiaTemporal,
@@ -536,6 +549,10 @@ rutasEnvios.put('/:id', (req, res, next) => {
       const etiqueta = courier ? etiquetaCourier(courier) : cambiaCourier ? null : envio.transportista_asignado;
       validarCambioAdministrador(envio, estado, etiqueta);
       if (courier && courier.id !== envio.courier_id) {
+        // RF-R02: no se asigna un envío cuyo costo todavía no pagó el remitente.
+        if (envio.pago_estado === 'POR_PAGAR') {
+          throw conflicto('ENVIO_SIN_PAGO', `La guía ${envio.numero_guia} todavía no está pagada: el remitente debe pagarla con QR.`, envio);
+        }
         await validarCapacidad(bd, courier, [envio.id]);
       }
 
@@ -614,6 +631,38 @@ rutasEnvios.delete('/:id', (req, res, next) => {
 });
 
 const MOTIVOS_FALLA = ['ausente', 'direccion_errada', 'rechazado', 'zona_inaccesible'];
+
+const TEXTO_MOTIVO = {
+  ausente: 'no encontramos a nadie en la dirección',
+  direccion_errada: 'la dirección no es correcta',
+  rechazado: 'el paquete fue rechazado',
+  zona_inaccesible: 'no se pudo llegar a la zona'
+};
+
+/** Celular enmascarado para mostrarlo en el seguimiento: *****4321. */
+function enmascararCelular(celular) {
+  const digitos = String(celular || '').replace(/\D/g, '');
+  return digitos.length >= 4 ? `*****${digitos.slice(-4)}` : '*****';
+}
+
+/**
+ * RF-C07 / HU-C05: tras una entrega fallida se avisa al destinatario para reprogramar.
+ * El SMS es simulado (todos los datos del proyecto lo son): se registra el mensaje enviado.
+ * Sin celular registrado no hay a quién avisar y se devuelve null.
+ */
+function mensajeAvisoFallida(envio, motivo, devuelto) {
+  if (!envio.destinatario_telefono) return null;
+  const texto = devuelto
+    ? `RutaLog: tu envío ${envio.numero_guia} no pudo entregarse tras ${MAX_INTENTOS} intentos (${TEXTO_MOTIVO[motivo]}) y vuelve al remitente.`
+    : `RutaLog: hoy no pudimos entregar tu envío ${envio.numero_guia} porque ${TEXTO_MOTIVO[motivo]}. ` +
+      'Responde este mensaje para reprogramar la entrega o corregir la dirección.';
+  return {
+    motivo: devuelto ? 'devolucion' : 'entrega_fallida',
+    canal: 'sms',
+    destino: enmascararCelular(envio.destinatario_telefono),
+    mensaje: texto
+  };
+}
 
 const TOLERANCIA_RELOJ_MS = 5 * 60 * 1000;
 
@@ -695,7 +744,18 @@ rutasEnvios.post('/:id/fallido', (req, res, next) => {
     if (estado === 'devuelto') {
       await registrarEvento(bd, envio.id, 'devuelto', req.usuario.id, fecha, latitud, longitud);
     }
-    return { estado: 201, cuerpo: aJson(actualizado.rows[0]), idEnvio: envio.id };
+    const aviso = mensajeAvisoFallida(envio, motivo, estado === 'devuelto');
+    if (aviso) {
+      await bd.query(
+        'INSERT INTO avisos (envio_id, motivo, canal, destino, mensaje) VALUES ($1, $2, $3, $4, $5)',
+        [envio.id, aviso.motivo, aviso.canal, aviso.destino, aviso.mensaje]
+      );
+    }
+    return {
+      estado: 201,
+      cuerpo: { ...aJson(actualizado.rows[0]), avisoDestinatario: aviso ? { canal: aviso.canal, destino: aviso.destino } : null },
+      idEnvio: envio.id
+    };
   });
 });
 
@@ -758,5 +818,6 @@ module.exports = {
   leerUbicacion,
   ETIQUETAS,
   ESTADOS_CERRADOS,
-  MAX_INTENTOS
+  MAX_INTENTOS,
+  mensajeAvisoFallida
 };

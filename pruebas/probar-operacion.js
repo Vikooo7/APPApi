@@ -63,7 +63,7 @@ const JPEG =
   // El courier con más cupo recibe 2 envíos abiertos de otros couriers (o sin courier): reasignar también es válido.
   const libre = [...couriers.datos.datos].sort((a, b) => b.disponibles - a.disponibles)[0];
   const pendientes = envios
-    .filter((e) => ['pendiente', 'recogido', 'en_transito'].includes(e.estado) && e.courierId !== libre.id)
+    .filter((e) => ['pendiente', 'recogido', 'en_transito'].includes(e.estado) && e.courierId !== libre.id && e.pagoEstado !== 'POR_PAGAR')
     .slice(0, 2);
   const asignacion = { uuidOperacion: uuid(), courierId: libre.id, envioIds: pendientes.map((e) => e.id) };
   const asignar = await llamar('POST', '/asignaciones', supervisor, asignacion);
@@ -77,7 +77,7 @@ const JPEG =
   const lleno = await llamar('POST', '/asignaciones', supervisor, {
     uuidOperacion: uuid(),
     courierId: rosa.id,
-    envioIds: envios.filter((e) => !['entregado', 'devuelto'].includes(e.estado)).map((e) => e.id).slice(0, 35)
+    envioIds: envios.filter((e) => !['entregado', 'devuelto'].includes(e.estado) && e.pagoEstado !== 'POR_PAGAR').map((e) => e.id).slice(0, 35)
   });
   comprobar('no supera la capacidad de 30 paradas (422)', lleno.http === 422 && lleno.datos.codigo === 'CAPACIDAD_EXCEDIDA', lleno.datos);
 
@@ -162,7 +162,8 @@ const JPEG =
 
     let envio = enReparto;
     for (let intento = 1; intento <= 3; intento += 1) {
-      const hora = new Date(Date.now() - (4 - intento) * 10 * 60 * 1000).toISOString();
+      // Segundos atrás y en orden: el envío elegido puede haberse registrado hace muy poco (otra prueba).
+      const hora = new Date(Date.now() - (4 - intento) * 1000).toISOString();
       const r = await llamar('POST', `/envios/${envio.id}/fallido`, tokenDueno, {
         uuidOperacion: uuid(),
         motivo: 'ausente',

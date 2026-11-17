@@ -84,6 +84,12 @@ rutasOperacion.post('/asignaciones', requiereSesion, soloOperacion, (req, res, n
       );
     }
 
+    // RF-R02: un envío se recoge solo cuando el banco confirmó el pago de su costo.
+    const sinPago = envios.find((e) => e.pago_estado === 'POR_PAGAR');
+    if (sinPago) {
+      throw error(409, 'ENVIO_SIN_PAGO', `La guía ${sinPago.numero_guia} todavía no está pagada: el remitente debe pagarla con QR.`);
+    }
+
     const nuevos = envios.filter((e) => e.courier_id !== courier.id).map((e) => e.id);
     await validarCapacidad(bd, courier, nuevos);
 
