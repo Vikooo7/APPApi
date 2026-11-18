@@ -1,0 +1,91 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/1.0.0/schema.json",
+  "name": "kpi5",
+  "position": {
+    "x": 852,
+    "y": 70,
+    "z": 5,
+    "width": 198,
+    "height": 150,
+    "tabOrder": 5
+  },
+  "visual": {
+    "visualType": "multiRowCard",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Días hasta liquidar (semana)"
+                }
+              },
+              "queryRef": "Medidas.Días hasta liquidar (semana)",
+              "nativeQueryRef": "Días hasta liquidar (semana)",
+              "displayName": "Esta semana"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Días hasta liquidar (sem. anterior)"
+                }
+              },
+              "queryRef": "Medidas.Días hasta liquidar (sem. anterior)",
+              "nativeQueryRef": "Días hasta liquidar (sem. anterior)",
+              "displayName": "Semana anterior"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Var. Días hasta liquidar"
+                }
+              },
+              "queryRef": "Medidas.Var. Días hasta liquidar",
+              "nativeQueryRef": "Var. Días hasta liquidar",
+              "displayName": "Variación"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true,
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Días hasta liquidar'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

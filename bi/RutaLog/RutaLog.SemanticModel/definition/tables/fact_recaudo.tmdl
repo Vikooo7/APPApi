@@ -1,0 +1,90 @@
+table fact_recaudo
+	lineageTag: 639420b3-c7a3-593f-8377-eb65711160b8
+
+	column envio_id
+		dataType: int64
+		formatString: 0
+		lineageTag: aaa4c383-8163-5264-bf81-1adfdd06846e
+		summarizeBy: none
+		sourceColumn: envio_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column remitente_key
+		dataType: int64
+		formatString: 0
+		isHidden
+		lineageTag: ed751c93-6699-55fb-a2b8-cf5b1714a1c1
+		summarizeBy: none
+		sourceColumn: remitente_key
+
+		annotation SummarizationSetBy = Automatic
+
+	column fecha_cobro_key
+		dataType: int64
+		formatString: 0
+		isHidden
+		lineageTag: 7d016328-4303-59f8-b45d-57689fa586e6
+		summarizeBy: none
+		sourceColumn: fecha_cobro_key
+
+		annotation SummarizationSetBy = Automatic
+
+	column fecha_liquidacion_key
+		dataType: int64
+		formatString: 0
+		isHidden
+		lineageTag: 9a6c34da-4ce5-524f-bbf3-468551745ee0
+		summarizeBy: none
+		sourceColumn: fecha_liquidacion_key
+
+		annotation SummarizationSetBy = Automatic
+
+	column recaudado
+		dataType: double
+		formatString: #,##0.00
+		lineageTag: 1654c34f-1e75-5173-91a2-17b5b7175935
+		summarizeBy: sum
+		sourceColumn: recaudado
+
+		annotation SummarizationSetBy = Automatic
+
+	column costo_envio
+		dataType: double
+		formatString: #,##0.00
+		lineageTag: 42c2119e-c168-568d-a8d7-dfb94fe227b0
+		summarizeBy: sum
+		sourceColumn: costo_envio
+
+		annotation SummarizationSetBy = Automatic
+
+	column neto
+		dataType: double
+		formatString: #,##0.00
+		lineageTag: b0db3173-b166-515b-a92b-0008f3f6022f
+		summarizeBy: sum
+		sourceColumn: neto
+
+		annotation SummarizationSetBy = Automatic
+
+	column dias_hasta_liquidar
+		dataType: double
+		formatString: #,##0.00
+		lineageTag: 0c4f7cdd-8988-5dbd-855f-a995ad1c5e40
+		summarizeBy: average
+		sourceColumn: dias_hasta_liquidar
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fact_recaudo = m
+		mode: import
+		source =
+				let
+				    Origen = Csv.Document(File.Contents(CarpetaDatos & "fact_recaudo.csv"), [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]),
+				    Encabezados = Table.PromoteHeaders(Origen, [PromoteAllScalars = true]),
+				    SinVacios = Table.TransformColumns(Encabezados, {}, each if _ = "" then null else _),
+				    Tipos = Table.TransformColumnTypes(SinVacios, {{"envio_id", Int64.Type}, {"remitente_key", Int64.Type}, {"fecha_cobro_key", Int64.Type}, {"fecha_liquidacion_key", Int64.Type}, {"recaudado", type number}, {"costo_envio", type number}, {"neto", type number}, {"dias_hasta_liquidar", type number}}, "en-US")
+				in
+				    Tipos
+
+	annotation PBI_ResultType = Table

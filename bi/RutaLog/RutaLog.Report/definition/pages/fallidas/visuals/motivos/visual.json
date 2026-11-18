@@ -1,0 +1,79 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/1.0.0/schema.json",
+  "name": "motivos",
+  "position": {
+    "x": 645,
+    "y": 20,
+    "z": 2,
+    "width": 615,
+    "height": 330,
+    "tabOrder": 2
+  },
+  "visual": {
+    "visualType": "donutChart",
+    "query": {
+      "queryState": {
+        "Category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_motivo_falla"
+                    }
+                  },
+                  "Property": "motivo"
+                }
+              },
+              "queryRef": "dim_motivo_falla.motivo",
+              "nativeQueryRef": "motivo",
+              "displayName": "Motivo"
+            }
+          ]
+        },
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Intentos fallidos"
+                }
+              },
+              "queryRef": "Medidas.Intentos fallidos",
+              "nativeQueryRef": "Intentos fallidos"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true,
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Motivos de entrega fallida'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/1.0.0/schema.json",
+  "name": "kpi2",
+  "position": {
+    "x": 228,
+    "y": 70,
+    "z": 2,
+    "width": 198,
+    "height": 150,
+    "tabOrder": 2
+  },
+  "visual": {
+    "visualType": "multiRowCard",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "% Fallidas (semana)"
+                }
+              },
+              "queryRef": "Medidas.% Fallidas (semana)",
+              "nativeQueryRef": "% Fallidas (semana)",
+              "displayName": "Esta semana"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "% Fallidas (sem. anterior)"
+                }
+              },
+              "queryRef": "Medidas.% Fallidas (sem. anterior)",
+              "nativeQueryRef": "% Fallidas (sem. anterior)",
+              "displayName": "Semana anterior"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Var. % Fallidas (pp)"
+                }
+              },
+              "queryRef": "Medidas.Var. % Fallidas (pp)",
+              "nativeQueryRef": "Var. % Fallidas (pp)",
+              "displayName": "Variación (pp)"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true,
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'% Fallidas'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

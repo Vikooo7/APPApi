@@ -1,0 +1,41 @@
+table dim_remitente
+	lineageTag: 6f9802f5-6e81-53f8-a855-807f858cd87d
+
+	column remitente_key
+		dataType: int64
+		formatString: 0
+		isHidden
+		lineageTag: eac7b4f7-e416-520a-9992-f16e34aa2727
+		summarizeBy: none
+		sourceColumn: remitente_key
+
+		annotation SummarizationSetBy = Automatic
+
+	column remitente
+		dataType: string
+		lineageTag: 36a77b70-bd14-5ccc-88ed-18f53fe55756
+		summarizeBy: none
+		sourceColumn: remitente
+
+		annotation SummarizationSetBy = Automatic
+
+	column tipo
+		dataType: string
+		lineageTag: 92b3874a-cbc9-5197-bc59-f096fb6f4bb9
+		summarizeBy: none
+		sourceColumn: tipo
+
+		annotation SummarizationSetBy = Automatic
+
+	partition dim_remitente = m
+		mode: import
+		source =
+				let
+				    Origen = Csv.Document(File.Contents(CarpetaDatos & "dim_remitente.csv"), [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]),
+				    Encabezados = Table.PromoteHeaders(Origen, [PromoteAllScalars = true]),
+				    SinVacios = Table.TransformColumns(Encabezados, {}, each if _ = "" then null else _),
+				    Tipos = Table.TransformColumnTypes(SinVacios, {{"remitente_key", Int64.Type}, {"remitente", type text}, {"tipo", type text}}, "en-US")
+				in
+				    Tipos
+
+	annotation PBI_ResultType = Table

@@ -1,0 +1,164 @@
+table fact_envio
+	lineageTag: b9a42fc4-8e47-58b9-90c0-a1d8b4313abe
+
+	column envio_id
+		dataType: int64
+		formatString: 0
+		lineageTag: be469764-86cb-5288-9a74-f840a0331cb1
+		summarizeBy: none
+		sourceColumn: envio_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column fecha_key
+		dataType: int64
+		formatString: 0
+		isHidden
+		lineageTag: 8b29b7c3-bcdc-5f9c-945e-7a950a81b42a
+		summarizeBy: none
+		sourceColumn: fecha_key
+
+		annotation SummarizationSetBy = Automatic
+
+	column ruta_key
+		dataType: int64
+		formatString: 0
+		isHidden
+		lineageTag: e884c88b-aba2-562e-bb02-febac38bb3c3
+		summarizeBy: none
+		sourceColumn: ruta_key
+
+		annotation SummarizationSetBy = Automatic
+
+	column zona_key
+		dataType: int64
+		formatString: 0
+		isHidden
+		lineageTag: 5cade6f1-8c50-5e05-bd93-66b092292e6d
+		summarizeBy: none
+		sourceColumn: zona_key
+
+		annotation SummarizationSetBy = Automatic
+
+	column courier_key
+		dataType: int64
+		formatString: 0
+		isHidden
+		lineageTag: a05db94f-ef9c-5310-85af-d1d22dff6d9e
+		summarizeBy: none
+		sourceColumn: courier_key
+
+		annotation SummarizationSetBy = Automatic
+
+	column remitente_key
+		dataType: int64
+		formatString: 0
+		isHidden
+		lineageTag: 5597ca4b-d999-5d04-90c8-2d7a800e052f
+		summarizeBy: none
+		sourceColumn: remitente_key
+
+		annotation SummarizationSetBy = Automatic
+
+	column peso_kg
+		dataType: double
+		formatString: #,##0.00
+		lineageTag: e9ed6850-3594-5e63-a83d-c425d15604cc
+		summarizeBy: sum
+		sourceColumn: peso_kg
+
+		annotation SummarizationSetBy = Automatic
+
+	column costo_envio
+		dataType: double
+		formatString: #,##0.00
+		lineageTag: 903b54bb-45a4-5b69-a6cf-31d125c0f9f8
+		summarizeBy: sum
+		sourceColumn: costo_envio
+
+		annotation SummarizationSetBy = Automatic
+
+	column contraentrega
+		dataType: int64
+		formatString: 0
+		lineageTag: 5a935584-7ecf-5baa-b27a-aef855cef5dd
+		summarizeBy: sum
+		sourceColumn: contraentrega
+
+		annotation SummarizationSetBy = Automatic
+
+	column monto_contraentrega
+		dataType: double
+		formatString: #,##0.00
+		lineageTag: f986b78f-5996-5c30-8370-e0955c364d0a
+		summarizeBy: sum
+		sourceColumn: monto_contraentrega
+
+		annotation SummarizationSetBy = Automatic
+
+	column intentos
+		dataType: int64
+		formatString: 0
+		lineageTag: 1e690585-2766-5339-9fe3-f9470ee799be
+		summarizeBy: sum
+		sourceColumn: intentos
+
+		annotation SummarizationSetBy = Automatic
+
+	column entregado
+		dataType: int64
+		formatString: 0
+		lineageTag: dd228a91-1654-506a-b076-c65a42658371
+		summarizeBy: sum
+		sourceColumn: entregado
+
+		annotation SummarizationSetBy = Automatic
+
+	column devuelto
+		dataType: int64
+		formatString: 0
+		lineageTag: 1ab908b3-51da-559b-8728-3d633bf32934
+		summarizeBy: sum
+		sourceColumn: devuelto
+
+		annotation SummarizationSetBy = Automatic
+
+	column horas_entrega
+		dataType: double
+		formatString: #,##0.00
+		lineageTag: fc2a3fa4-30a1-527b-a356-b0d969a91bdd
+		summarizeBy: average
+		sourceColumn: horas_entrega
+
+		annotation SummarizationSetBy = Automatic
+
+	column a_tiempo
+		dataType: int64
+		formatString: 0
+		lineageTag: 7a6e758e-73a4-5702-bd41-857113c02010
+		summarizeBy: sum
+		sourceColumn: a_tiempo
+
+		annotation SummarizationSetBy = Automatic
+
+	column km_courier
+		dataType: double
+		formatString: #,##0.00
+		lineageTag: 1c0a8407-c968-551a-adf7-459e5202532d
+		summarizeBy: sum
+		sourceColumn: km_courier
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fact_envio = m
+		mode: import
+		source =
+				let
+				    Origen = Csv.Document(File.Contents(CarpetaDatos & "fact_envio.csv"), [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]),
+				    Encabezados = Table.PromoteHeaders(Origen, [PromoteAllScalars = true]),
+				    SinVacios = Table.TransformColumns(Encabezados, {}, each if _ = "" then null else _),
+				    Tipos = Table.TransformColumnTypes(SinVacios, {{"envio_id", Int64.Type}, {"fecha_key", Int64.Type}, {"ruta_key", Int64.Type}, {"zona_key", Int64.Type}, {"courier_key", Int64.Type}, {"remitente_key", Int64.Type}, {"peso_kg", type number}, {"costo_envio", type number}, {"contraentrega", Int64.Type}, {"monto_contraentrega", type number}, {"intentos", Int64.Type}, {"entregado", Int64.Type}, {"devuelto", Int64.Type}, {"horas_entrega", type number}, {"a_tiempo", Int64.Type}, {"km_courier", type number}}, "en-US")
+				in
+				    Tipos
+
+	annotation PBI_ResultType = Table

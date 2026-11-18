@@ -256,7 +256,7 @@ def variables_volumen(fechas, inicio):
 
 corte = vol.index.max() - pd.Timedelta(days=13)
 entreno_v, prueba_v = vol[vol.index < corte], vol[vol.index >= corte]
-resultado, pronostico_manana = [], {}
+resultado, pronostico_manana, coeficientes = [], {}, {}
 manana = vol.index.max() + pd.Timedelta(days=1)
 for z in zonas + ['total']:
     movil = entreno_v[z].rolling(7).mean().iloc[-1]
@@ -266,6 +266,9 @@ for z in zonas + ['total']:
                       'MAPE regresión (%)': mape(prueba_v[z], pred)})
     reg_total = LinearRegression().fit(variables_volumen(vol.index, vol.index.min()), vol[z])
     pronostico_manana[z] = max(0, round(float(reg_total.predict(variables_volumen(pd.DatetimeIndex([manana]), vol.index.min()))[0])))
+    # Para que la API pronostique cualquier día: envíos = intercepto + Σ coeficiente × variable.
+    coeficientes[z] = {'intercepto': round(float(reg_total.intercept_), 4),
+                       **{n: round(float(c), 4) for n, c in zip(variables_volumen(vol.index[:1], vol.index.min()).columns, reg_total.coef_)}}
 pd.DataFrame(resultado).set_index('zona').round(1)
 """)
 
@@ -278,7 +281,10 @@ ax.set_title('ML-03 · Envíos por día (real vs. modelo)'); ax.legend(); plt.ti
 couriers = {z: int(np.ceil(pronostico_manana[z] / 30)) for z in zonas}
 modelo_volumen = {'modelo': 'ML-03 regresión (día de la semana + tendencia + campaña)', 'fecha': str(manana.date()),
                   'envios_por_zona': {z: pronostico_manana[z] for z in zonas}, 'total': pronostico_manana['total'],
-                  'couriers_sugeridos': couriers}
+                  'couriers_sugeridos': couriers,
+                  'inicio_tendencia': str(vol.index.min().date()), 'paradas_por_courier': 30,
+                  'variables': 'tendencia = días desde inicio_tendencia; dia_1..dia_6 = lunes..sábado (domingo = referencia); cyber = campaña',
+                  'coeficientes': coeficientes}
 (MODELOS / 'pronostico-volumen.json').write_text(json.dumps(modelo_volumen, indent=2, ensure_ascii=False), encoding='utf-8')
 print(f'Pronóstico para {manana.date()}:', modelo_volumen['envios_por_zona'], '· couriers sugeridos:', couriers)
 """)

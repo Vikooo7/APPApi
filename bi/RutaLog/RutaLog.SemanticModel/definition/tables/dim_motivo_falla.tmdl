@@ -1,0 +1,34 @@
+table dim_motivo_falla
+	lineageTag: efb7d34b-0519-5569-a977-b1e88e74f80b
+
+	column motivo_key
+		dataType: int64
+		formatString: 0
+		isHidden
+		lineageTag: aac46756-e52b-5428-a936-fa6c34f904bd
+		summarizeBy: none
+		sourceColumn: motivo_key
+
+		annotation SummarizationSetBy = Automatic
+
+	column motivo
+		dataType: string
+		lineageTag: 101d7e17-a01c-5900-b26c-3694be3ecb27
+		summarizeBy: none
+		sourceColumn: motivo
+		sortByColumn: motivo_key
+
+		annotation SummarizationSetBy = Automatic
+
+	partition dim_motivo_falla = m
+		mode: import
+		source =
+				let
+				    Origen = Csv.Document(File.Contents(CarpetaDatos & "dim_motivo_falla.csv"), [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]),
+				    Encabezados = Table.PromoteHeaders(Origen, [PromoteAllScalars = true]),
+				    SinVacios = Table.TransformColumns(Encabezados, {}, each if _ = "" then null else _),
+				    Tipos = Table.TransformColumnTypes(SinVacios, {{"motivo_key", Int64.Type}, {"motivo", type text}}, "en-US")
+				in
+				    Tipos
+
+	annotation PBI_ResultType = Table

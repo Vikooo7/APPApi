@@ -1,0 +1,34 @@
+table dim_zona
+	lineageTag: 2dc1feb7-80ca-5398-a67a-b660467004c6
+
+	column zona_key
+		dataType: int64
+		formatString: 0
+		isHidden
+		lineageTag: dd043c3f-d729-5e60-8c19-b5f7696e5f4b
+		summarizeBy: none
+		sourceColumn: zona_key
+
+		annotation SummarizationSetBy = Automatic
+
+	column zona
+		dataType: string
+		lineageTag: 7af8cf05-88c0-5b02-b847-bfa6793f1b99
+		summarizeBy: none
+		sourceColumn: zona
+		sortByColumn: zona_key
+
+		annotation SummarizationSetBy = Automatic
+
+	partition dim_zona = m
+		mode: import
+		source =
+				let
+				    Origen = Csv.Document(File.Contents(CarpetaDatos & "dim_zona.csv"), [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]),
+				    Encabezados = Table.PromoteHeaders(Origen, [PromoteAllScalars = true]),
+				    SinVacios = Table.TransformColumns(Encabezados, {}, each if _ = "" then null else _),
+				    Tipos = Table.TransformColumnTypes(SinVacios, {{"zona_key", Int64.Type}, {"zona", type text}}, "en-US")
+				in
+				    Tipos
+
+	annotation PBI_ResultType = Table

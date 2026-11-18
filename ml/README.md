@@ -22,6 +22,17 @@ Todo con **datos simulados** (como indica la ficha). Se reproduce siempre igual:
 | ML-03 Pronóstico de volumen | Regresión con día de la semana, tendencia y campaña · MAPE ≈ 12 % en el total diario |
 | ML-04 Orden de paradas | Vecino más cercano + 2-opt (ya en la API y en la App Courier) |
 
+## Dónde se usa cada modelo (el "uso" de la ficha)
+
+| Modelo | Uso | Dónde |
+|---|---|---|
+| ML-01 | Aviso previo al destinatario y prioridad en la ruta | App Admin: *Riesgo de falla* y marcas en *Asignar envíos* · App Courier: "Riesgo alto · llama antes" en la parada |
+| ML-02 | Fecha estimada para el remitente | App Cliente: *Llegada estimada* en el detalle del envío (± 4 h) |
+| ML-03 | Cuántos couriers programar | App Admin: pronóstico de mañana por zona en *Asignar envíos* |
+| ML-04 | Ruta del día | App Courier: paradas ordenadas y km ahorrados |
+
+La API aplica los modelos con los archivos de `modelos/` (sin Python): `src/ml/riesgo.js` y `src/ml/pronosticos.js`.
+
 ## Cómo abrirlo en tu PC
 
 Desde `V:\MIAPPapi`, en una terminal:

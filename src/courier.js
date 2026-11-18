@@ -4,6 +4,7 @@ const { crearClienteBanco } = require('./clienteBanco');
 const { error, requiereSesion } = require('./auth');
 const { leerImagen, guardarArchivo } = require('./archivos');
 const { baseDeZona, distanciaKm, ordenarParadas, longitudRecorrido } = require('./rutas-optimas');
+const { evaluar, franjaPorOrden } = require('./ml/riesgo');
 const {
   aJson,
   ejecutarUnaVez,
@@ -88,6 +89,34 @@ async function construirRuta(bd, courier, inicio) {
     }
   }
 
+  // ML-01 "prioridad en la ruta": riesgo de cada entrega con su franja según el orden del día.
+  const idsEntrega = ordenadas.filter((p) => p.tipo === 'entrega').map((p) => p.envioId);
+  const { rows: contexto } = await bd.query(
+    `SELECT e.id, r.zona,
+            (SELECT COUNT(*) FROM intentos_fallidos i JOIN envios o ON o.id = i.envio_id
+              WHERE o.destinatario_telefono = e.destinatario_telefono AND o.id <> e.id)::int AS fallas
+     FROM envios e LEFT JOIN rutas r ON r.nombre = e.ruta WHERE e.id = ANY($1::int[])`,
+    [idsEntrega]
+  );
+  const porEnvio = new Map(contexto.map((c) => [c.id, c]));
+  const hoyLima = new Date(Date.now() - 5 * 3600 * 1000);
+  const fechaRuta = new Date(Date.UTC(hoyLima.getUTCFullYear(), hoyLima.getUTCMonth(), hoyLima.getUTCDate()));
+  const riesgoDe = (p, orden) => {
+    if (p.tipo !== 'entrega') return null;
+    const e = porId.get(p.envioId);
+    const c = porEnvio.get(p.envioId) || {};
+    return evaluar({
+      montoContraentrega: Number(e.monto_contraentrega),
+      intentos: e.intentos,
+      fallasDestinatario: c.fallas,
+      confirmado: e.confirmacion_estado === 'CONFIRMADA',
+      cargaCourier: ordenadas.length,
+      franja: franjaPorOrden(orden),
+      zona: c.zona,
+      fecha: fechaRuta
+    });
+  };
+
   let anterior = inicio;
   return {
     fecha: new Date().toISOString().slice(0, 10),
@@ -106,6 +135,7 @@ async function construirRuta(bd, courier, inicio) {
         latitud: p.latitud,
         longitud: p.longitud,
         kmDesdeAnterior: Math.round(km * 10) / 10,
+        riesgo: riesgoDe(p, i + 1),
         envio: aJson(porId.get(p.envioId))
       };
     }),

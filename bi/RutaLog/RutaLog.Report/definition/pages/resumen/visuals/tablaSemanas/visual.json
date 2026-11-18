@@ -1,0 +1,175 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/1.0.0/schema.json",
+  "name": "tablaSemanas",
+  "position": {
+    "x": 20,
+    "y": 475,
+    "z": 12,
+    "width": 1240,
+    "height": 235,
+    "tabOrder": 12
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_fecha"
+                    }
+                  },
+                  "Property": "semana_label"
+                }
+              },
+              "queryRef": "dim_fecha.semana_label",
+              "nativeQueryRef": "semana_label",
+              "displayName": "Semana"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Envíos"
+                }
+              },
+              "queryRef": "Medidas.Envíos",
+              "nativeQueryRef": "Envíos"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "% A tiempo"
+                }
+              },
+              "queryRef": "Medidas.% A tiempo",
+              "nativeQueryRef": "% A tiempo"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Var. % A tiempo vs sem. ant. (pp)"
+                }
+              },
+              "queryRef": "Medidas.Var. % A tiempo vs sem. ant. (pp)",
+              "nativeQueryRef": "Var. % A tiempo vs sem. ant. (pp)",
+              "displayName": "Var. a tiempo (pp)"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "% Fallidas"
+                }
+              },
+              "queryRef": "Medidas.% Fallidas",
+              "nativeQueryRef": "% Fallidas"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Var. % Fallidas vs sem. ant. (pp)"
+                }
+              },
+              "queryRef": "Medidas.Var. % Fallidas vs sem. ant. (pp)",
+              "nativeQueryRef": "Var. % Fallidas vs sem. ant. (pp)",
+              "displayName": "Var. fallidas (pp)"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Km por entrega"
+                }
+              },
+              "queryRef": "Medidas.Km por entrega",
+              "nativeQueryRef": "Km por entrega"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Recaudo"
+                }
+              },
+              "queryRef": "Medidas.Recaudo",
+              "nativeQueryRef": "Recaudo"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Días hasta liquidar"
+                }
+              },
+              "queryRef": "Medidas.Días hasta liquidar",
+              "nativeQueryRef": "Días hasta liquidar"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true,
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Comparación semana a semana'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

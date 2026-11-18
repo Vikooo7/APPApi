@@ -3,3 +3,4 @@ ml/.venv
 ml/datos
 ml/*.ipynb
 ml/*.py
+bi/

@@ -1,0 +1,52 @@
+relationship a75a6a3d-d3f7-5b6e-8bb1-f29fcfe1b65c
+	fromColumn: fact_envio.fecha_key
+	toColumn: dim_fecha.fecha_key
+
+relationship 9149ed36-9092-5deb-a210-bae90b44e4dd
+	fromColumn: fact_envio.ruta_key
+	toColumn: dim_ruta.ruta_key
+
+relationship f6a096a1-6c8d-5139-92c0-6c8b229e0f47
+	fromColumn: fact_envio.zona_key
+	toColumn: dim_zona.zona_key
+
+relationship 0a9585fe-66a7-5f5e-b552-22edd603315b
+	fromColumn: fact_envio.courier_key
+	toColumn: dim_courier.courier_key
+
+relationship 16477627-e8d3-5216-90bc-779666c27da6
+	fromColumn: fact_envio.remitente_key
+	toColumn: dim_remitente.remitente_key
+
+relationship e6c32712-ab9f-538a-ba08-d70eb8623bb5
+	fromColumn: fact_intento.fecha_key
+	toColumn: dim_fecha.fecha_key
+
+relationship 8c674001-2018-55a1-9bf4-da482115dd6d
+	fromColumn: fact_intento.franja_key
+	toColumn: dim_franja.franja_key
+
+relationship 33d15947-bfc7-5fc0-8b20-1c2a5f7eefac
+	fromColumn: fact_intento.zona_key
+	toColumn: dim_zona.zona_key
+
+relationship 3bf446b2-5810-5611-b32f-a3351bae1f03
+	fromColumn: fact_intento.courier_key
+	toColumn: dim_courier.courier_key
+
+relationship f8d54955-5dee-5506-b78b-3c8d3106aff1
+	fromColumn: fact_intento.motivo_key
+	toColumn: dim_motivo_falla.motivo_key
+
+relationship 3b98eaa2-68c9-5669-920b-27ee49796674
+	fromColumn: fact_recaudo.fecha_cobro_key
+	toColumn: dim_fecha.fecha_key
+
+relationship 5d704471-df0d-5753-b348-bcb333094e7f
+	isActive: false
+	fromColumn: fact_recaudo.fecha_liquidacion_key
+	toColumn: dim_fecha.fecha_key
+
+relationship 47b918ad-3704-5406-bdfe-ff4df85b5358
+	fromColumn: fact_recaudo.remitente_key
+	toColumn: dim_remitente.remitente_key

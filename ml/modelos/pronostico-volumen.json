@@ -15,5 +15,76 @@
     "Centro": 1,
     "Sur": 1,
     "Oriente": 1
+  },
+  "inicio_tendencia": "2026-08-24",
+  "paradas_por_courier": 30,
+  "variables": "tendencia = días desde inicio_tendencia; dia_1..dia_6 = lunes..sábado (domingo = referencia); cyber = campaña",
+  "coeficientes": {
+    "Lima y Callao": {
+      "intercepto": 9.2396,
+      "tendencia": 0.0358,
+      "dia_1": 17.3279,
+      "dia_2": 16.2088,
+      "dia_3": 15.3396,
+      "dia_4": 15.4705,
+      "dia_5": 22.8513,
+      "dia_6": 9.1191,
+      "cyber": 20.6435
+    },
+    "Norte": {
+      "intercepto": 2.0915,
+      "tendencia": 0.0317,
+      "dia_1": 8.9418,
+      "dia_2": 6.5768,
+      "dia_3": 7.2118,
+      "dia_4": 7.5968,
+      "dia_5": 9.1485,
+      "dia_6": 5.115,
+      "cyber": 4.9776
+    },
+    "Centro": {
+      "intercepto": 2.6524,
+      "tendencia": 0.0209,
+      "dia_1": 5.8194,
+      "dia_2": 6.7152,
+      "dia_3": 4.3609,
+      "dia_4": 5.7566,
+      "dia_5": 6.6524,
+      "dia_6": 3.4376,
+      "cyber": 3.6734
+    },
+    "Sur": {
+      "intercepto": 2.4987,
+      "tendencia": 0.0394,
+      "dia_1": 8.7912,
+      "dia_2": 7.1685,
+      "dia_3": 6.5458,
+      "dia_4": 5.5898,
+      "dia_5": 9.3004,
+      "dia_6": 2.5394,
+      "cyber": 9.3396
+    },
+    "Oriente": {
+      "intercepto": 2.8665,
+      "tendencia": 0.0105,
+      "dia_1": 5.2463,
+      "dia_2": 2.6525,
+      "dia_3": 5.892,
+      "dia_4": 3.6315,
+      "dia_5": 4.2043,
+      "dia_6": 2.3438,
+      "cyber": 3.7997
+    },
+    "total": {
+      "intercepto": 19.3488,
+      "tendencia": 0.1382,
+      "dia_1": 46.1266,
+      "dia_2": 39.3217,
+      "dia_3": 39.3501,
+      "dia_4": 38.0452,
+      "dia_5": 52.157,
+      "dia_6": 22.5549,
+      "cyber": 42.4338
+    }
   }
 }

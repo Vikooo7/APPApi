@@ -1,0 +1,28 @@
+ruta_key,ruta,region,zona,distancia_km,tiempo_estimado_h
+1,Arequipa → Puno,Puno,Sur,217,6
+2,Cusco → Puerto Maldonado,Madre de Dios,Oriente,398,10
+3,Lima → Abancay,Apurímac,Sur,606,16
+4,Lima → Arequipa,Arequipa,Sur,958,16
+5,Lima → Ayacucho,Ayacucho,Centro,413,9
+6,Lima → Cajamarca,Cajamarca,Norte,707,14
+7,Lima → Callao,Callao,Lima y Callao,10,2
+8,Lima → Cerro de Pasco,Pasco,Centro,218,7
+9,Lima → Chachapoyas,Amazonas,Oriente,816,22
+10,Lima → Chiclayo,Lambayeque,Norte,827,12
+11,Lima → Cusco,Cusco,Sur,718,22
+12,Lima → Huancavelica,Huancavelica,Centro,299,10
+13,Lima → Huancayo,Junín,Centro,250,7
+14,Lima → Huaraz,Áncash,Norte,356,8
+15,Lima → Huánuco,Huánuco,Centro,314,8
+16,Lima → Ica,Ica,Sur,333,4
+17,Lima → Iquitos,Loreto,Oriente,1266,96
+18,Lima → Lima (urbano),Lima,Lima y Callao,45,3
+19,Lima → Moquegua,Moquegua,Sur,1089,17
+20,Lima → Piura,Piura,Norte,1072,15
+21,Lima → Pucallpa,Ucayali,Oriente,613,18
+22,Lima → Puerto Maldonado,Madre de Dios,Oriente,1069,28
+23,Lima → Puno,Puno,Sur,1084,20
+24,Lima → Tacna,Tacna,Sur,1232,19
+25,Lima → Tarapoto,San Martín,Oriente,779,24
+26,Lima → Trujillo,La Libertad,Norte,611,9
+27,Lima → Tumbes,Tumbes,Norte,1268,20

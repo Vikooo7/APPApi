@@ -1,0 +1,79 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/1.0.0/schema.json",
+  "name": "confirmacion",
+  "position": {
+    "x": 437,
+    "y": 365,
+    "z": 4,
+    "width": 405,
+    "height": 345,
+    "tabOrder": 4
+  },
+  "visual": {
+    "visualType": "clusteredColumnChart",
+    "query": {
+      "queryState": {
+        "Category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fact_intento"
+                    }
+                  },
+                  "Property": "confirmacion"
+                }
+              },
+              "queryRef": "fact_intento.confirmacion",
+              "nativeQueryRef": "confirmacion",
+              "displayName": "Confirmación"
+            }
+          ]
+        },
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "% Fallidas"
+                }
+              },
+              "queryRef": "Medidas.% Fallidas",
+              "nativeQueryRef": "% Fallidas"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true,
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Fallidas según si el destinatario confirmó'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

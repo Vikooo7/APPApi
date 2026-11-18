@@ -1,0 +1,23 @@
+model Model
+	culture: en-US
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	sourceQueryCulture: es-PE
+	dataAccessOptions
+		legacyRedirects
+		returnErrorValuesAsNull
+
+annotation PBI_QueryOrder = ["CarpetaDatos", "dim_fecha", "dim_zona", "dim_ruta", "dim_courier", "dim_remitente", "dim_franja", "dim_motivo_falla", "fact_envio", "fact_intento", "fact_recaudo", "Medidas"]
+
+annotation __PBI_TimeIntelligenceEnabled = 0
+
+ref table dim_fecha
+ref table dim_zona
+ref table dim_ruta
+ref table dim_courier
+ref table dim_remitente
+ref table dim_franja
+ref table dim_motivo_falla
+ref table fact_envio
+ref table fact_intento
+ref table fact_recaudo
+ref table Medidas

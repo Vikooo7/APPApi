@@ -4,6 +4,7 @@ const { error } = require('./auth');
 const { generarGuia } = require('./esquema');
 const { coordenadasEnvio } = require('./rutas-optimas');
 const { leerImagen, guardarArchivo } = require('./archivos');
+const { estimarEntrega } = require('./ml/pronosticos');
 
 const rutasEnvios = express.Router();
 
@@ -400,6 +401,8 @@ rutasEnvios.get('/:id', async (req, res, next) => {
     res.json({
       envio: aJson(envio),
       registradoEn: envio.creado_en,
+      // ML-02 "Fecha estimada para el remitente": solo mientras el envío no se cierra.
+      estimacion: ESTADOS_CERRADOS.includes(envio.estado) ? null : estimarEntrega(envio),
       eventos: eventos.rows.map((e) => ({
         estado: e.estado,
         fechaHora: e.fecha_hora_evento,

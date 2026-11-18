@@ -1,0 +1,34 @@
+table dim_franja
+	lineageTag: a6fafc87-efae-59a5-a987-da541f5231d7
+
+	column franja_key
+		dataType: int64
+		formatString: 0
+		isHidden
+		lineageTag: ba048fb6-84bc-5126-8991-fd1b35e64802
+		summarizeBy: none
+		sourceColumn: franja_key
+
+		annotation SummarizationSetBy = Automatic
+
+	column franja
+		dataType: string
+		lineageTag: c0403f27-c475-516f-95f0-95b6abe5a83d
+		summarizeBy: none
+		sourceColumn: franja
+		sortByColumn: franja_key
+
+		annotation SummarizationSetBy = Automatic
+
+	partition dim_franja = m
+		mode: import
+		source =
+				let
+				    Origen = Csv.Document(File.Contents(CarpetaDatos & "dim_franja.csv"), [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]),
+				    Encabezados = Table.PromoteHeaders(Origen, [PromoteAllScalars = true]),
+				    SinVacios = Table.TransformColumns(Encabezados, {}, each if _ = "" then null else _),
+				    Tipos = Table.TransformColumnTypes(SinVacios, {{"franja_key", Int64.Type}, {"franja", type text}}, "en-US")
+				in
+				    Tipos
+
+	annotation PBI_ResultType = Table

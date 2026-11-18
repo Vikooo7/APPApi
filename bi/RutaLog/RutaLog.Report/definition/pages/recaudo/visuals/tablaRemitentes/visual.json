@@ -1,0 +1,146 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/1.0.0/schema.json",
+  "name": "tablaRemitentes",
+  "position": {
+    "x": 20,
+    "y": 20,
+    "z": 1,
+    "width": 760,
+    "height": 690,
+    "tabOrder": 1
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_remitente"
+                    }
+                  },
+                  "Property": "remitente"
+                }
+              },
+              "queryRef": "dim_remitente.remitente",
+              "nativeQueryRef": "remitente",
+              "displayName": "Remitente"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_remitente"
+                    }
+                  },
+                  "Property": "tipo"
+                }
+              },
+              "queryRef": "dim_remitente.tipo",
+              "nativeQueryRef": "tipo",
+              "displayName": "Tipo"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Cobros"
+                }
+              },
+              "queryRef": "Medidas.Cobros",
+              "nativeQueryRef": "Cobros"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Recaudo"
+                }
+              },
+              "queryRef": "Medidas.Recaudo",
+              "nativeQueryRef": "Recaudo"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Costo de envíos"
+                }
+              },
+              "queryRef": "Medidas.Costo de envíos",
+              "nativeQueryRef": "Costo de envíos"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Neto liquidado"
+                }
+              },
+              "queryRef": "Medidas.Neto liquidado",
+              "nativeQueryRef": "Neto liquidado"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Días hasta liquidar"
+                }
+              },
+              "queryRef": "Medidas.Días hasta liquidar",
+              "nativeQueryRef": "Días hasta liquidar"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true,
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Recaudo y liquidación por remitente'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

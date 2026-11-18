@@ -1,0 +1,79 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/1.0.0/schema.json",
+  "name": "entregasCourier",
+  "position": {
+    "x": 437,
+    "y": 20,
+    "z": 2,
+    "width": 405,
+    "height": 330,
+    "tabOrder": 2
+  },
+  "visual": {
+    "visualType": "clusteredBarChart",
+    "query": {
+      "queryState": {
+        "Category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_courier"
+                    }
+                  },
+                  "Property": "courier"
+                }
+              },
+              "queryRef": "dim_courier.courier",
+              "nativeQueryRef": "courier",
+              "displayName": "Courier"
+            }
+          ]
+        },
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Entregados"
+                }
+              },
+              "queryRef": "Medidas.Entregados",
+              "nativeQueryRef": "Entregados"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true,
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Entregas por courier'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

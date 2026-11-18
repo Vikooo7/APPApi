@@ -1,0 +1,79 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/1.0.0/schema.json",
+  "name": "aviso",
+  "position": {
+    "x": 20,
+    "y": 365,
+    "z": 3,
+    "width": 405,
+    "height": 345,
+    "tabOrder": 3
+  },
+  "visual": {
+    "visualType": "clusteredColumnChart",
+    "query": {
+      "queryState": {
+        "Category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_fecha"
+                    }
+                  },
+                  "Property": "periodo_aviso"
+                }
+              },
+              "queryRef": "dim_fecha.periodo_aviso",
+              "nativeQueryRef": "periodo_aviso",
+              "displayName": "Periodo"
+            }
+          ]
+        },
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "% Fallidas"
+                }
+              },
+              "queryRef": "Medidas.% Fallidas",
+              "nativeQueryRef": "% Fallidas"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true,
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Fallidas antes y después del aviso previo (ML-01)'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

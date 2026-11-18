@@ -1,0 +1,231 @@
+table Medidas
+	lineageTag: 776fee55-2343-5041-9920-4fdac28f38a1
+
+	measure 'Envíos' = COUNTROWS(fact_envio)
+		formatString: #,##0
+		displayFolder: Entregas
+		lineageTag: 9e3d4d63-a3ce-5fc2-ba5a-9f0404c875a8
+
+	measure Entregados = CALCULATE(COUNTROWS(fact_envio), fact_envio[entregado] = 1)
+		formatString: #,##0
+		displayFolder: Entregas
+		lineageTag: fa6ade1a-0bc7-5536-9941-dfc737fef2cf
+
+	measure Devueltos = CALCULATE(COUNTROWS(fact_envio), fact_envio[devuelto] = 1)
+		formatString: #,##0
+		displayFolder: Entregas
+		lineageTag: 48170f2b-9535-5d04-8a24-8461bc47fbd8
+
+	measure '% A tiempo' = DIVIDE(SUM(fact_envio[a_tiempo]), [Entregados])
+		formatString: 0.0%
+		displayFolder: Entregas
+		lineageTag: 193f34c5-b092-587d-9e79-471bd827778f
+
+	measure 'Horas promedio de entrega' = AVERAGE(fact_envio[horas_entrega])
+		formatString: #,##0.0
+		displayFolder: Entregas
+		lineageTag: 52108c58-9af2-5a20-a425-58a6e7f9f37d
+
+	measure 'Km por entrega' = DIVIDE(SUM(fact_envio[km_courier]), [Entregados])
+		formatString: #,##0.0
+		displayFolder: Entregas
+		lineageTag: 8466e59e-044a-5471-8b06-fce6fa53f595
+
+	measure Intentos = COUNTROWS(fact_intento)
+		formatString: #,##0
+		displayFolder: Fallidas
+		lineageTag: b6ba9075-f329-5bdb-b3f4-5ada4e9426b7
+
+	measure 'Intentos fallidos' = SUM(fact_intento[fallo])
+		formatString: #,##0
+		displayFolder: Fallidas
+		lineageTag: c11df5ec-ac41-5ca3-a26a-89dd85a2605d
+
+	measure '% Fallidas' = DIVIDE([Intentos fallidos], [Intentos])
+		formatString: 0.0%
+		displayFolder: Fallidas
+		lineageTag: 6eb38749-4be9-586a-b5eb-07c7533f4028
+
+	measure '% Confirmaron horario' = DIVIDE(SUM(fact_intento[confirmo_horario]), [Intentos])
+		formatString: 0.0%
+		displayFolder: Fallidas
+		lineageTag: 179a4be2-c7ac-5253-9aba-355c0d0fa7d0
+
+	measure Cobros = COUNTROWS(fact_recaudo)
+		formatString: #,##0
+		displayFolder: Recaudo
+		lineageTag: eb6ea308-b731-539c-ba3c-790550e33197
+
+	measure Recaudo = SUM(fact_recaudo[recaudado])
+		formatString: #,##0.00
+		displayFolder: Recaudo
+		lineageTag: 0b64667c-3feb-564a-8e1f-96d871b09bbd
+
+	measure 'Costo de envíos' = SUM(fact_recaudo[costo_envio])
+		formatString: #,##0.00
+		displayFolder: Recaudo
+		lineageTag: 1e7bd170-a218-544a-a5df-2ac8e3e35f99
+
+	measure 'Neto liquidado' = SUM(fact_recaudo[neto])
+		formatString: #,##0.00
+		displayFolder: Recaudo
+		lineageTag: bcd249f2-041e-54f8-a5fe-b1a985adffd3
+
+	measure 'Días hasta liquidar' = AVERAGE(fact_recaudo[dias_hasta_liquidar])
+		formatString: #,##0.0
+		displayFolder: Recaudo
+		lineageTag: fe48a90b-2c77-55ed-8acc-01ae4e3152af
+
+	measure 'Semana actual' = CALCULATE(MAX(dim_fecha[semana]), fact_intento)
+		formatString: 0
+		displayFolder: Comparación semanal
+		lineageTag: 3b016f8b-d436-55a1-a621-162edb03e75b
+
+	measure '% A tiempo (semana)' =
+			VAR s = [Semana actual]
+			RETURN CALCULATE([% A tiempo], REMOVEFILTERS(dim_fecha), dim_fecha[semana] = s)
+		formatString: 0.0%
+		displayFolder: Comparación semanal
+		lineageTag: 0e0bb085-5eb1-5f2f-8e3e-e81fa74a1cb5
+
+	measure '% A tiempo (sem. anterior)' =
+			VAR s = [Semana actual]
+			RETURN CALCULATE([% A tiempo], REMOVEFILTERS(dim_fecha), dim_fecha[semana] = s - 1)
+		formatString: 0.0%
+		displayFolder: Comparación semanal
+		lineageTag: 6b90612a-8f19-5cfa-a1eb-3aeffd159b37
+
+	measure 'Var. % A tiempo (pp)' = IF(NOT ISBLANK([% A tiempo (sem. anterior)]), ([% A tiempo (semana)] - [% A tiempo (sem. anterior)]) * 100)
+		formatString: +0.0;-0.0;0.0
+		displayFolder: Comparación semanal
+		lineageTag: 4376d9ab-0cd8-5ee1-8849-5cca7252d617
+
+	measure '% Fallidas (semana)' =
+			VAR s = [Semana actual]
+			RETURN CALCULATE([% Fallidas], REMOVEFILTERS(dim_fecha), dim_fecha[semana] = s)
+		formatString: 0.0%
+		displayFolder: Comparación semanal
+		lineageTag: 24c3dc81-8efb-5520-868c-66c53ff2a3c4
+
+	measure '% Fallidas (sem. anterior)' =
+			VAR s = [Semana actual]
+			RETURN CALCULATE([% Fallidas], REMOVEFILTERS(dim_fecha), dim_fecha[semana] = s - 1)
+		formatString: 0.0%
+		displayFolder: Comparación semanal
+		lineageTag: 7e15092f-c486-5a92-8c2a-57e90f41accb
+
+	measure 'Var. % Fallidas (pp)' = IF(NOT ISBLANK([% Fallidas (sem. anterior)]), ([% Fallidas (semana)] - [% Fallidas (sem. anterior)]) * 100)
+		formatString: +0.0;-0.0;0.0
+		displayFolder: Comparación semanal
+		lineageTag: a39165de-7552-523f-89d5-fad68cdf70f4
+
+	measure 'Km por entrega (semana)' =
+			VAR s = [Semana actual]
+			RETURN CALCULATE([Km por entrega], REMOVEFILTERS(dim_fecha), dim_fecha[semana] = s)
+		formatString: #,##0.0
+		displayFolder: Comparación semanal
+		lineageTag: 61119407-6850-5861-aa13-5c79dde47547
+
+	measure 'Km por entrega (sem. anterior)' =
+			VAR s = [Semana actual]
+			RETURN CALCULATE([Km por entrega], REMOVEFILTERS(dim_fecha), dim_fecha[semana] = s - 1)
+		formatString: #,##0.0
+		displayFolder: Comparación semanal
+		lineageTag: 95465c32-f848-5e6e-a623-83aa12ae4186
+
+	measure 'Var. Km por entrega (%)' = DIVIDE([Km por entrega (semana)] - [Km por entrega (sem. anterior)], [Km por entrega (sem. anterior)])
+		formatString: +0.0%;-0.0%;0.0%
+		displayFolder: Comparación semanal
+		lineageTag: 28358d9c-f47c-5cc5-bdbf-f072d148d48c
+
+	measure 'Recaudo (semana)' =
+			VAR s = [Semana actual]
+			RETURN CALCULATE([Recaudo], REMOVEFILTERS(dim_fecha), dim_fecha[semana] = s)
+		formatString: #,##0.00
+		displayFolder: Comparación semanal
+		lineageTag: 6c97b091-95c8-5b26-a67e-7957a4e7bd0a
+
+	measure 'Recaudo (sem. anterior)' =
+			VAR s = [Semana actual]
+			RETURN CALCULATE([Recaudo], REMOVEFILTERS(dim_fecha), dim_fecha[semana] = s - 1)
+		formatString: #,##0.00
+		displayFolder: Comparación semanal
+		lineageTag: 7a6bb0f0-e258-53d2-b2ea-3296a3b25bb7
+
+	measure 'Var. Recaudo (%)' = DIVIDE([Recaudo (semana)] - [Recaudo (sem. anterior)], [Recaudo (sem. anterior)])
+		formatString: +0.0%;-0.0%;0.0%
+		displayFolder: Comparación semanal
+		lineageTag: a5de62b0-34be-5076-9249-0581fecde105
+
+	measure 'Días hasta liquidar (semana)' =
+			VAR s = [Semana actual]
+			RETURN CALCULATE([Días hasta liquidar], REMOVEFILTERS(dim_fecha), dim_fecha[semana] = s)
+		formatString: #,##0.0
+		displayFolder: Comparación semanal
+		lineageTag: d4273510-290d-5aea-b129-e5dac964e014
+
+	measure 'Días hasta liquidar (sem. anterior)' =
+			VAR s = [Semana actual]
+			RETURN CALCULATE([Días hasta liquidar], REMOVEFILTERS(dim_fecha), dim_fecha[semana] = s - 1)
+		formatString: #,##0.0
+		displayFolder: Comparación semanal
+		lineageTag: 23052d34-e438-5f6c-a14f-44c65cbf7f41
+
+	measure 'Var. Días hasta liquidar' = IF(NOT ISBLANK([Días hasta liquidar (sem. anterior)]), [Días hasta liquidar (semana)] - [Días hasta liquidar (sem. anterior)])
+		formatString: +0.0;-0.0;0.0
+		displayFolder: Comparación semanal
+		lineageTag: 401a90e5-0e8d-5d64-a2d4-55d9120f252d
+
+	measure 'Entregados (semana)' =
+			VAR s = [Semana actual]
+			RETURN CALCULATE([Entregados], REMOVEFILTERS(dim_fecha), dim_fecha[semana] = s)
+		formatString: #,##0
+		displayFolder: Comparación semanal
+		lineageTag: 2b1bf1a0-2bad-5dc0-a67e-d3d805b06b2b
+
+	measure 'Entregados (sem. anterior)' =
+			VAR s = [Semana actual]
+			RETURN CALCULATE([Entregados], REMOVEFILTERS(dim_fecha), dim_fecha[semana] = s - 1)
+		formatString: #,##0
+		displayFolder: Comparación semanal
+		lineageTag: 76e5a37a-c06f-5721-bec7-be13453f8ebf
+
+	measure 'Var. Entregados (%)' = DIVIDE([Entregados (semana)] - [Entregados (sem. anterior)], [Entregados (sem. anterior)])
+		formatString: +0.0%;-0.0%;0.0%
+		displayFolder: Comparación semanal
+		lineageTag: d63081f9-1c96-5a2c-9c69-c94cf402f1ba
+
+	measure 'Var. % A tiempo vs sem. ant. (pp)' =
+			VAR s = SELECTEDVALUE(dim_fecha[semana])
+			VAR ant = CALCULATE([% A tiempo], REMOVEFILTERS(dim_fecha), dim_fecha[semana] = s - 1)
+			RETURN IF(NOT ISBLANK(s) && NOT ISBLANK(ant), ([% A tiempo] - ant) * 100)
+		formatString: +0.0;-0.0;0.0
+		displayFolder: Comparación semanal
+		lineageTag: 9f85410e-c709-5d00-b988-fe60fd535d01
+
+	measure 'Var. % Fallidas vs sem. ant. (pp)' =
+			VAR s = SELECTEDVALUE(dim_fecha[semana])
+			VAR ant = CALCULATE([% Fallidas], REMOVEFILTERS(dim_fecha), dim_fecha[semana] = s - 1)
+			RETURN IF(NOT ISBLANK(s) && NOT ISBLANK(ant), ([% Fallidas] - ant) * 100)
+		formatString: +0.0;-0.0;0.0
+		displayFolder: Comparación semanal
+		lineageTag: 8c9af6fd-5a01-5546-80f9-66de25b55837
+
+	column Columna
+		dataType: string
+		isHidden
+		lineageTag: bd98ed35-1cde-5cda-b468-a6eae099eb8d
+		summarizeBy: none
+		sourceColumn: Columna
+
+		annotation SummarizationSetBy = Automatic
+
+	partition Medidas = m
+		mode: import
+		source =
+				let
+				    Origen = #table(type table [Columna = text], {})
+				in
+				    Origen
+
+	annotation PBI_ResultType = Table

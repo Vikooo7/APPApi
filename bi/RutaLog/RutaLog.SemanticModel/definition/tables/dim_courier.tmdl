@@ -1,0 +1,41 @@
+table dim_courier
+	lineageTag: b457793d-ef77-55f2-bb0a-3683e790e726
+
+	column courier_key
+		dataType: int64
+		formatString: 0
+		isHidden
+		lineageTag: f7063101-c738-519e-a576-0111186bbdc9
+		summarizeBy: none
+		sourceColumn: courier_key
+
+		annotation SummarizationSetBy = Automatic
+
+	column courier
+		dataType: string
+		lineageTag: 5e0c02e7-de8a-51cb-8781-5a63ef63b26b
+		summarizeBy: none
+		sourceColumn: courier
+
+		annotation SummarizationSetBy = Automatic
+
+	column zona
+		dataType: string
+		lineageTag: dd421632-960c-5097-a8bd-3b14eb25cca0
+		summarizeBy: none
+		sourceColumn: zona
+
+		annotation SummarizationSetBy = Automatic
+
+	partition dim_courier = m
+		mode: import
+		source =
+				let
+				    Origen = Csv.Document(File.Contents(CarpetaDatos & "dim_courier.csv"), [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]),
+				    Encabezados = Table.PromoteHeaders(Origen, [PromoteAllScalars = true]),
+				    SinVacios = Table.TransformColumns(Encabezados, {}, each if _ = "" then null else _),
+				    Tipos = Table.TransformColumnTypes(SinVacios, {{"courier_key", Int64.Type}, {"courier", type text}, {"zona", type text}}, "en-US")
+				in
+				    Tipos
+
+	annotation PBI_ResultType = Table

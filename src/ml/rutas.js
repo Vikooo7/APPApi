@@ -4,6 +4,7 @@ const { consulta } = require('../db');
 const { error, requiereSesion } = require('../auth');
 const { aJson, ejecutarUnaVez, esOperacion, obtenerParaEditar, conflicto, ETIQUETAS, ESTADOS_CERRADOS } = require('../envios');
 const { evaluar, franjaPorOrden, infoModelo } = require('./riesgo');
+const { pronosticarVolumen } = require('./pronosticos');
 
 const rutasMl = express.Router();
 
@@ -89,6 +90,24 @@ rutasMl.get('/ml/riesgo-fallida', requiereSesion, soloOperacion, async (req, res
         confirmacionPedida: datos.filter((d) => d.riesgoAlto && d.confirmacion.estado).length
       },
       datos
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * GET /api/ml/pronostico-volumen?fecha=AAAA-MM-DD (operación) → ML-03: envíos esperados por zona ese día
+ * (por defecto mañana), cuántos couriers programar y cuántos hay registrados en cada zona.
+ */
+rutasMl.get('/ml/pronostico-volumen', requiereSesion, soloOperacion, async (req, res, next) => {
+  try {
+    const pronostico = pronosticarVolumen(leerFecha(req.query.fecha));
+    const { rows } = await consulta("SELECT zona, COUNT(*)::int AS couriers FROM usuarios WHERE rol = 'courier' GROUP BY zona");
+    const disponibles = new Map(rows.map((r) => [r.zona, r.couriers]));
+    res.json({
+      ...pronostico,
+      zonas: pronostico.zonas.map((z) => ({ ...z, couriersRegistrados: disponibles.get(z.zona) || 0 }))
     });
   } catch (e) {
     next(e);

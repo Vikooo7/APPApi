@@ -1,0 +1,136 @@
+table fact_intento
+	lineageTag: 1c491314-4457-5e0f-b701-80aeafbe77f0
+
+	column intento_id
+		dataType: int64
+		formatString: 0
+		lineageTag: 9886035d-e619-58f3-b51a-8efa044fa908
+		summarizeBy: none
+		sourceColumn: intento_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column envio_id
+		dataType: int64
+		formatString: 0
+		lineageTag: c7293425-bf78-5826-9a64-85a390acd1d1
+		summarizeBy: none
+		sourceColumn: envio_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column fecha_key
+		dataType: int64
+		formatString: 0
+		isHidden
+		lineageTag: 736f0fe3-7d09-5e80-a103-5d59ce6a08df
+		summarizeBy: none
+		sourceColumn: fecha_key
+
+		annotation SummarizationSetBy = Automatic
+
+	column franja_key
+		dataType: int64
+		formatString: 0
+		isHidden
+		lineageTag: 4bc874a0-f329-5ab3-b668-cc64bdddde3a
+		summarizeBy: none
+		sourceColumn: franja_key
+
+		annotation SummarizationSetBy = Automatic
+
+	column zona_key
+		dataType: int64
+		formatString: 0
+		isHidden
+		lineageTag: 8a74f8f3-b921-592a-9f18-5de58455dc8d
+		summarizeBy: none
+		sourceColumn: zona_key
+
+		annotation SummarizationSetBy = Automatic
+
+	column courier_key
+		dataType: int64
+		formatString: 0
+		isHidden
+		lineageTag: bec0b9de-028e-5369-a813-633151f7d07d
+		summarizeBy: none
+		sourceColumn: courier_key
+
+		annotation SummarizationSetBy = Automatic
+
+	column motivo_key
+		dataType: int64
+		formatString: 0
+		isHidden
+		lineageTag: 146cd9e0-0e26-527a-a78d-99669ebb0ec9
+		summarizeBy: none
+		sourceColumn: motivo_key
+
+		annotation SummarizationSetBy = Automatic
+
+	column numero_intento
+		dataType: int64
+		formatString: 0
+		lineageTag: 226d1a1d-1f23-5ff4-8761-b5c9042ab554
+		summarizeBy: none
+		sourceColumn: numero_intento
+
+		annotation SummarizationSetBy = Automatic
+
+	column contraentrega
+		dataType: int64
+		formatString: 0
+		lineageTag: fdac521e-dae3-5c13-b25a-28f3f5eaeeb1
+		summarizeBy: sum
+		sourceColumn: contraentrega
+
+		annotation SummarizationSetBy = Automatic
+
+	column confirmo_horario
+		dataType: int64
+		formatString: 0
+		lineageTag: 0b4683d8-918c-55b9-a06b-20ff936ef727
+		summarizeBy: sum
+		sourceColumn: confirmo_horario
+
+		annotation SummarizationSetBy = Automatic
+
+	column confirmacion
+		dataType: string
+		lineageTag: d20c9d85-cbd0-53bc-b751-0520f18b0436
+		summarizeBy: none
+		sourceColumn: confirmacion
+
+		annotation SummarizationSetBy = Automatic
+
+	column aviso_previo
+		dataType: int64
+		formatString: 0
+		lineageTag: 74b0ea35-5328-53a5-a929-6f7891abfded
+		summarizeBy: sum
+		sourceColumn: aviso_previo
+
+		annotation SummarizationSetBy = Automatic
+
+	column fallo
+		dataType: int64
+		formatString: 0
+		lineageTag: c2b053a6-d28b-508a-bad4-dae83a623aa3
+		summarizeBy: sum
+		sourceColumn: fallo
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fact_intento = m
+		mode: import
+		source =
+				let
+				    Origen = Csv.Document(File.Contents(CarpetaDatos & "fact_intento.csv"), [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]),
+				    Encabezados = Table.PromoteHeaders(Origen, [PromoteAllScalars = true]),
+				    SinVacios = Table.TransformColumns(Encabezados, {}, each if _ = "" then null else _),
+				    Tipos = Table.TransformColumnTypes(SinVacios, {{"intento_id", Int64.Type}, {"envio_id", Int64.Type}, {"fecha_key", Int64.Type}, {"franja_key", Int64.Type}, {"zona_key", Int64.Type}, {"courier_key", Int64.Type}, {"motivo_key", Int64.Type}, {"numero_intento", Int64.Type}, {"contraentrega", Int64.Type}, {"confirmo_horario", Int64.Type}, {"confirmacion", type text}, {"aviso_previo", Int64.Type}, {"fallo", Int64.Type}}, "en-US")
+				in
+				    Tipos
+
+	annotation PBI_ResultType = Table

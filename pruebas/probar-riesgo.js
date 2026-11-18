@@ -73,6 +73,32 @@ async function entrar(correo) {
     comprobar('con el horario confirmado el riesgo baja', despues.probabilidad < objetivo.probabilidad && despues.confirmacion.estado === 'CONFIRMADA', { antes: objetivo.probabilidad, despues: despues.probabilidad });
   }
 
+  console.log('ML-03 · cuántos couriers programar');
+  comprobar('el remitente no ve el pronóstico (403)', (await llamar('GET', '/ml/pronostico-volumen', cliente)).http === 403);
+  const pv = await llamar('GET', '/ml/pronostico-volumen?fecha=2026-11-19', operador);
+  comprobar('pronóstico de las 5 zonas con couriers sugeridos y registrados', pv.http === 200 && pv.datos.zonas.length === 5 &&
+    pv.datos.zonas.every((z) => z.couriersSugeridos === (z.envios > 0 ? Math.ceil(z.envios / 30) : 0) && Number.isInteger(z.couriersRegistrados)), pv.datos);
+
+  console.log('ML-02 · fecha estimada para el remitente');
+  const misEnvios = (await llamar('GET', '/envios', cliente)).datos.datos;
+  const abierto = misEnvios.find((e) => !['entregado', 'devuelto'].includes(e.estado));
+  const cerrado = misEnvios.find((e) => e.estado === 'entregado');
+  if (abierto) {
+    const s = await llamar('GET', `/envios/${abierto.numeroGuia}`, cliente);
+    comprobar('el seguimiento trae la llegada estimada con su margen', s.http === 200 && s.datos.estimacion && !Number.isNaN(Date.parse(s.datos.estimacion.fechaEstimada)) && s.datos.estimacion.margenHoras > 0, s.datos.estimacion);
+  }
+  if (cerrado) {
+    const s = await llamar('GET', `/envios/${cerrado.numeroGuia}`, cliente);
+    comprobar('un envío entregado ya no muestra estimación', s.datos.estimacion === null);
+  }
+
+  console.log('ML-01 · prioridad en la ruta del courier');
+  const ruta = await llamar('GET', '/courier/ruta', courier);
+  const entregas = (ruta.datos.paradas || []).filter((p) => p.tipo === 'entrega');
+  comprobar('cada entrega de la ruta trae su riesgo; los recojos no', ruta.http === 200 &&
+    entregas.every((p) => p.riesgo && typeof p.riesgo.probabilidad === 'number') &&
+    (ruta.datos.paradas || []).filter((p) => p.tipo === 'recojo').every((p) => p.riesgo === null), { entregas: entregas.length });
+
   console.log(`\n${pasos - fallos} de ${pasos} comprobaciones correctas.`);
   process.exitCode = fallos ? 1 : 0;
 })().catch((e) => {

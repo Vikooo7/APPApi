@@ -1,0 +1,132 @@
+table dim_fecha
+	lineageTag: 69ecb30a-3292-5d65-9dd0-1d9325038154
+
+	column fecha_key
+		dataType: int64
+		formatString: 0
+		isHidden
+		lineageTag: e9272ad9-d697-56a0-b758-fa1b7b828947
+		summarizeBy: none
+		sourceColumn: fecha_key
+
+		annotation SummarizationSetBy = Automatic
+
+	column fecha
+		dataType: dateTime
+		formatString: dd/mm/yyyy
+		lineageTag: fb0a64d5-4ef8-5710-9bc1-82b104626e73
+		summarizeBy: none
+		sourceColumn: fecha
+
+		annotation SummarizationSetBy = Automatic
+
+	column anio
+		dataType: int64
+		formatString: 0
+		lineageTag: 75e33cd1-d4b3-5f6b-be75-1d0c296bb6b8
+		summarizeBy: none
+		sourceColumn: anio
+
+		annotation SummarizationSetBy = Automatic
+
+	column mes_num
+		dataType: int64
+		formatString: 0
+		isHidden
+		lineageTag: 58ac88b6-3f5c-52cb-922e-7202d292f9d5
+		summarizeBy: none
+		sourceColumn: mes_num
+
+		annotation SummarizationSetBy = Automatic
+
+	column mes
+		dataType: string
+		lineageTag: 11af683c-f99c-5226-be79-d64ea8f5fe28
+		summarizeBy: none
+		sourceColumn: mes
+		sortByColumn: mes_num
+
+		annotation SummarizationSetBy = Automatic
+
+	column semana
+		dataType: int64
+		formatString: 0
+		lineageTag: 9c01690b-4cd6-58e2-8e92-75f1f02a9ff5
+		summarizeBy: none
+		sourceColumn: semana
+
+		annotation SummarizationSetBy = Automatic
+
+	column semana_label
+		dataType: string
+		lineageTag: 155e40ad-0aad-54b8-9a59-811c93210de8
+		summarizeBy: none
+		sourceColumn: semana_label
+		sortByColumn: semana
+
+		annotation SummarizationSetBy = Automatic
+
+	column inicio_semana
+		dataType: dateTime
+		formatString: dd/mm/yyyy
+		lineageTag: 52ef32dd-096c-5481-b0fe-a54aab174fd7
+		summarizeBy: none
+		sourceColumn: inicio_semana
+
+		annotation SummarizationSetBy = Automatic
+
+	column dia_num
+		dataType: int64
+		formatString: 0
+		isHidden
+		lineageTag: 7dd5ad57-d259-5477-99d0-d06091e90ba9
+		summarizeBy: none
+		sourceColumn: dia_num
+
+		annotation SummarizationSetBy = Automatic
+
+	column dia
+		dataType: string
+		lineageTag: 2a1e5669-7858-535a-979f-1a0a2b588866
+		summarizeBy: none
+		sourceColumn: dia
+		sortByColumn: dia_num
+
+		annotation SummarizationSetBy = Automatic
+
+	column fin_de_semana
+		dataType: string
+		lineageTag: 1db5692a-bd49-5647-9a42-85e29477b6f4
+		summarizeBy: none
+		sourceColumn: fin_de_semana
+
+		annotation SummarizationSetBy = Automatic
+
+	column periodo_aviso
+		dataType: string
+		lineageTag: 25f59580-4bc1-570e-983a-7f9effe0384a
+		summarizeBy: none
+		sourceColumn: periodo_aviso
+
+		annotation SummarizationSetBy = Automatic
+
+	column campana
+		dataType: string
+		lineageTag: 33db4aef-9445-5ab1-ace7-c0141bcc0eca
+		summarizeBy: none
+		sourceColumn: campana
+
+		annotation SummarizationSetBy = Automatic
+
+	partition dim_fecha = m
+		mode: import
+		source =
+				let
+				    Origen = Csv.Document(File.Contents(CarpetaDatos & "dim_fecha.csv"), [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]),
+				    Encabezados = Table.PromoteHeaders(Origen, [PromoteAllScalars = true]),
+				    SinVacios = Table.TransformColumns(Encabezados, {}, each if _ = "" then null else _),
+				    Tipos = Table.TransformColumnTypes(SinVacios, {{"fecha_key", Int64.Type}, {"fecha", type date}, {"anio", Int64.Type}, {"mes_num", Int64.Type}, {"mes", type text}, {"semana", Int64.Type}, {"semana_label", type text}, {"inicio_semana", type date}, {"dia_num", Int64.Type}, {"dia", type text}, {"fin_de_semana", type text}, {"periodo_aviso", type text}, {"campana", type text}}, "en-US")
+				in
+				    Tipos
+
+	annotation PBI_ResultType = Table

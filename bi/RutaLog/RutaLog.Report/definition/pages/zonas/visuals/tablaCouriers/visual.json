@@ -1,0 +1,146 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/1.0.0/schema.json",
+  "name": "tablaCouriers",
+  "position": {
+    "x": 20,
+    "y": 365,
+    "z": 4,
+    "width": 1240,
+    "height": 345,
+    "tabOrder": 4
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_courier"
+                    }
+                  },
+                  "Property": "courier"
+                }
+              },
+              "queryRef": "dim_courier.courier",
+              "nativeQueryRef": "courier",
+              "displayName": "Courier"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_courier"
+                    }
+                  },
+                  "Property": "zona"
+                }
+              },
+              "queryRef": "dim_courier.zona",
+              "nativeQueryRef": "zona",
+              "displayName": "Zona"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Entregados"
+                }
+              },
+              "queryRef": "Medidas.Entregados",
+              "nativeQueryRef": "Entregados"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "% A tiempo"
+                }
+              },
+              "queryRef": "Medidas.% A tiempo",
+              "nativeQueryRef": "% A tiempo"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "% Fallidas"
+                }
+              },
+              "queryRef": "Medidas.% Fallidas",
+              "nativeQueryRef": "% Fallidas"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Km por entrega"
+                }
+              },
+              "queryRef": "Medidas.Km por entrega",
+              "nativeQueryRef": "Km por entrega"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "Horas promedio de entrega"
+                }
+              },
+              "queryRef": "Medidas.Horas promedio de entrega",
+              "nativeQueryRef": "Horas promedio de entrega"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true,
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Desempeño por courier'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

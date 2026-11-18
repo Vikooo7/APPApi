@@ -52,6 +52,11 @@ Las apps nunca se conectan a la base: todo pasa por esta API, que valida la sesi
 | `GET` | `/api/cron/liquidaciones` | Cron de Vercel (`CRON_SECRET`) | El mismo corte, automático martes y viernes a las 6:00 de Lima (`vercel.json`); el administrador aprueba |
 | `POST` | `/api/liquidaciones/:id/aprobar` | Administrador | El banco transfiere el neto (idempotente por `uuidOperacion`) |
 | `GET` | `/api/credito/facturacion`, `GET/POST /api/credito/solicitudes` | Administrador | Mi crédito: solo totales por mes (RN-07); decide el comité (RN-08) |
+| `GET` | `/api/ml/riesgo-fallida?fecha=` | Operación | ML-01: probabilidad de falla por entrega, riesgo alto y sus razones (modelo en `ml/modelos/modelo-riesgo.json`) |
+| `POST` | `/api/envios/:id/confirmacion`, `.../confirmacion/confirmar` | Operación | Aviso previo: SMS simulado que pide confirmar el horario y registro de la respuesta |
+| `GET` | `/api/ml/pronostico-volumen?fecha=` | Operación | ML-03: envíos esperados por zona y cuántos couriers programar (30 paradas por courier) |
+| — | `GET /api/envios/:guia` → `estimacion` | Remitente | ML-02: fecha estimada de entrega (± MAE del modelo); `GET /api/courier/ruta` → `riesgo` por entrega (ML-01) |
+| `GET` | `/api/tablero?semana=` | Operación | RF-O05: los 6 indicadores de la ficha frente a la semana anterior, por courier y tendencia de 8 semanas |
 
 Reglas nuevas: un envío registrado desde la migración 5 queda `POR_PAGAR` y no se asigna al courier hasta que el banco confirma su pago (RF-R02). El courier recibe el QR de cada entrega contraentrega con la ruta, para mostrarlo sin señal. Un cobro rechazado libera su n.º de operación.
 

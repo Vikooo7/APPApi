@@ -10,6 +10,7 @@ const { privacidadCourier } = require('./privacidad');
 const { rutasBanco } = require('./banco/rutas');
 const { rutasPagos } = require('./pagos');
 const { rutasMl } = require('./ml/rutas');
+const { rutasTablero } = require('./tablero');
 
 const app = express();
 // Vercel atiende por HTTPS detrás de un proxy: así req.protocol dice "https" (lo usa el cliente del banco).
@@ -82,6 +83,9 @@ app.use('/api', rutasPagos);
 
 // ML-01: riesgo de entrega fallida y confirmación previa del horario (App Admin).
 app.use('/api', rutasMl);
+
+// RF-O05: tablero de la operación con comparación semanal.
+app.use('/api', rutasTablero);
 
 app.use((req, res, next) => {
   next(error(404, 'RUTA_NO_ENCONTRADA', `No existe ${req.method} ${req.path}`));
