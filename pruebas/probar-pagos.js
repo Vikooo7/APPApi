@@ -208,9 +208,11 @@ const gps = { latitud: -12.06, longitud: -77.04 };
   comprobar('y su liquidación transferida con el n.º de operación (RF-R05)', misLiq.datos.datos.some((l) => l.id === liq.id && l.estado === 'TRANSFERIDA'), misLiq.datos);
   comprobar('el remitente no ve las liquidaciones de otros', misLiq.datos.datos.every((l) => l.remitenteId === misLiq.datos.datos[0].remitenteId));
   console.log('Corte automático de martes y viernes (cron de Vercel)');
-  comprobar('sin el secreto del cron no se calcula nada (401)', (await llamar('GET', '/cron/liquidaciones', null)).http === 401);
-  comprobar('con un secreto equivocado tampoco (401)', (await llamar('GET', '/cron/liquidaciones', 'otro-secreto')).http === 401);
-  comprobar('con un token de sesión de RutaLog tampoco (401)', (await llamar('GET', '/cron/liquidaciones', admin)).http === 401);
+  // 401 si el servidor tiene CRON_SECRET; 503 si no lo tiene (tampoco calcula nada).
+  const rechazado = async (token) => [401, 503].includes((await llamar('GET', '/cron/liquidaciones', token)).http);
+  comprobar('sin el secreto del cron no se calcula nada', await rechazado(null));
+  comprobar('con un secreto equivocado tampoco', await rechazado('otro-secreto'));
+  comprobar('con un token de sesión de RutaLog tampoco', await rechazado(admin));
   if (process.env.CRON_SECRET) {
     const cron = await llamar('GET', '/cron/liquidaciones', process.env.CRON_SECRET);
     comprobar('el cron calcula y deja todo CALCULADO para el administrador', cron.http === 200 && cron.datos.datos.every((l) => l.estado === 'CALCULADA'), cron.datos);

@@ -347,6 +347,20 @@ const MIGRACIONES = [
       await bd.query("UPDATE usuarios SET cuenta_banco = '191-2604003-0' WHERE correo = 'cliente@rutalog.pe' AND cuenta_banco IS NULL");
       await bd.query("UPDATE usuarios SET cuenta_banco = '191-2604004-0' WHERE correo = 'cliente2@rutalog.pe' AND cuenta_banco IS NULL");
     }
+  },
+  {
+    version: 6,
+    nombre: 'ML-01 (RF-O02): pedir al destinatario que confirme el horario de las entregas con riesgo alto',
+    pasos: [
+      `ALTER TABLE envios ADD COLUMN IF NOT EXISTS confirmacion_estado TEXT
+         CHECK (confirmacion_estado IN ('PEDIDA', 'CONFIRMADA'))`,
+      'ALTER TABLE envios ADD COLUMN IF NOT EXISTS confirmacion_pedida_en TIMESTAMPTZ',
+      'ALTER TABLE envios ADD COLUMN IF NOT EXISTS confirmado_en TIMESTAMPTZ',
+      'ALTER TABLE avisos DROP CONSTRAINT IF EXISTS avisos_motivo_check',
+      `ALTER TABLE avisos ADD CONSTRAINT avisos_motivo_check
+         CHECK (motivo IN ('entrega_fallida', 'devolucion', 'confirmacion'))`
+    ],
+    datos: async () => {}
   }
 ];
 
