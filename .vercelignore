@@ -1,0 +1,5 @@
+# Vercel solo necesita la API: el notebook, los datos y el entorno de Python se quedan fuera.
+ml/.venv
+ml/datos
+ml/*.ipynb
+ml/*.py

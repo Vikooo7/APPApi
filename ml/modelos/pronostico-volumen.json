@@ -1,0 +1,19 @@
+{
+  "modelo": "ML-03 regresión (día de la semana + tendencia + campaña)",
+  "fecha": "2026-11-16",
+  "envios_por_zona": {
+    "Lima y Callao": 30,
+    "Norte": 14,
+    "Centro": 10,
+    "Sur": 15,
+    "Oriente": 9
+  },
+  "total": 77,
+  "couriers_sugeridos": {
+    "Lima y Callao": 1,
+    "Norte": 1,
+    "Centro": 1,
+    "Sur": 1,
+    "Oriente": 1
+  }
+}

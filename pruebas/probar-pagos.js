@@ -207,6 +207,15 @@ const gps = { latitud: -12.06, longitud: -77.04 };
   const misLiq = await llamar('GET', '/liquidaciones', cliente);
   comprobar('y su liquidación transferida con el n.º de operación (RF-R05)', misLiq.datos.datos.some((l) => l.id === liq.id && l.estado === 'TRANSFERIDA'), misLiq.datos);
   comprobar('el remitente no ve las liquidaciones de otros', misLiq.datos.datos.every((l) => l.remitenteId === misLiq.datos.datos[0].remitenteId));
+  console.log('Corte automático de martes y viernes (cron de Vercel)');
+  comprobar('sin el secreto del cron no se calcula nada (401)', (await llamar('GET', '/cron/liquidaciones', null)).http === 401);
+  comprobar('con un secreto equivocado tampoco (401)', (await llamar('GET', '/cron/liquidaciones', 'otro-secreto')).http === 401);
+  comprobar('con un token de sesión de RutaLog tampoco (401)', (await llamar('GET', '/cron/liquidaciones', admin)).http === 401);
+  if (process.env.CRON_SECRET) {
+    const cron = await llamar('GET', '/cron/liquidaciones', process.env.CRON_SECRET);
+    comprobar('el cron calcula y deja todo CALCULADO para el administrador', cron.http === 200 && cron.datos.datos.every((l) => l.estado === 'CALCULADA'), cron.datos);
+  }
+
   const cuentaMala = await llamar('PUT', '/usuarios/yo/cuenta-banco', cliente, { cuenta: '191-0000000-0' });
   comprobar('una cuenta que no existe en el banco no se guarda (404)', cuentaMala.http === 404, cuentaMala.datos);
 

@@ -49,6 +49,7 @@ Las apps nunca se conectan a la base: todo pasa por esta API, que valida la sesi
 | `GET` | `/api/usuarios/yo`, `PUT /api/usuarios/yo/cuenta-banco` | Remitente | Cuenta de Banco Andino para recibir la liquidación (se valida con el banco) |
 | `GET` | `/api/liquidaciones` | Remitente (las suyas), operación (pendiente + historial) | RF-R05, RF-O03 |
 | `POST` | `/api/liquidaciones/calcular` | Operación | Corte: una liquidación por remitente con cobros CONFIRMADOS (RN-04) |
+| `GET` | `/api/cron/liquidaciones` | Cron de Vercel (`CRON_SECRET`) | El mismo corte, automático martes y viernes a las 6:00 de Lima (`vercel.json`); el administrador aprueba |
 | `POST` | `/api/liquidaciones/:id/aprobar` | Administrador | El banco transfiere el neto (idempotente por `uuidOperacion`) |
 | `GET` | `/api/credito/facturacion`, `GET/POST /api/credito/solicitudes` | Administrador | Mi crédito: solo totales por mes (RN-07); decide el comité (RN-08) |
 

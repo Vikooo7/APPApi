@@ -1,5 +1,8 @@
 {
   "rewrites": [
     { "source": "/(.*)", "destination": "/api" }
+  ],
+  "crons": [
+    { "path": "/api/cron/liquidaciones", "schedule": "0 11 * * 2,5" }
   ]
 }

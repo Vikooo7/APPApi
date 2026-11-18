@@ -1,0 +1,114 @@
+{
+  "modelo": "ML-02 Gradient Boosting",
+  "mae_horas_prueba": 4.33,
+  "horas_por_ruta": {
+    "Arequipa → Puno": {
+      "entre_semana": 16.1,
+      "fin_de_semana": 25.8
+    },
+    "Cusco → Puerto Maldonado": {
+      "entre_semana": 21.6,
+      "fin_de_semana": 31.9
+    },
+    "Lima → Abancay": {
+      "entre_semana": 27.4,
+      "fin_de_semana": 36.6
+    },
+    "Lima → Arequipa": {
+      "entre_semana": 27.4,
+      "fin_de_semana": 36.6
+    },
+    "Lima → Ayacucho": {
+      "entre_semana": 19.7,
+      "fin_de_semana": 29.1
+    },
+    "Lima → Cajamarca": {
+      "entre_semana": 25.7,
+      "fin_de_semana": 35.2
+    },
+    "Lima → Callao": {
+      "entre_semana": 12.2,
+      "fin_de_semana": 21.6
+    },
+    "Lima → Cerro de Pasco": {
+      "entre_semana": 17.7,
+      "fin_de_semana": 27.4
+    },
+    "Lima → Chachapoyas": {
+      "entre_semana": 33.8,
+      "fin_de_semana": 42.5
+    },
+    "Lima → Chiclayo": {
+      "entre_semana": 23.1,
+      "fin_de_semana": 33.4
+    },
+    "Lima → Cusco": {
+      "entre_semana": 33.3,
+      "fin_de_semana": 42.1
+    },
+    "Lima → Huancavelica": {
+      "entre_semana": 21.3,
+      "fin_de_semana": 31.6
+    },
+    "Lima → Huancayo": {
+      "entre_semana": 17.7,
+      "fin_de_semana": 27.7
+    },
+    "Lima → Huaraz": {
+      "entre_semana": 18.4,
+      "fin_de_semana": 28.3
+    },
+    "Lima → Huánuco": {
+      "entre_semana": 18.4,
+      "fin_de_semana": 28.3
+    },
+    "Lima → Ica": {
+      "entre_semana": 13.9,
+      "fin_de_semana": 24.2
+    },
+    "Lima → Iquitos": {
+      "entre_semana": 100.4,
+      "fin_de_semana": 102.9
+    },
+    "Lima → Lima (urbano)": {
+      "entre_semana": 13.0,
+      "fin_de_semana": 22.5
+    },
+    "Lima → Moquegua": {
+      "entre_semana": 28.0,
+      "fin_de_semana": 37.5
+    },
+    "Lima → Piura": {
+      "entre_semana": 26.0,
+      "fin_de_semana": 35.4
+    },
+    "Lima → Pucallpa": {
+      "entre_semana": 29.5,
+      "fin_de_semana": 38.2
+    },
+    "Lima → Puerto Maldonado": {
+      "entre_semana": 39.4,
+      "fin_de_semana": 48.6
+    },
+    "Lima → Puno": {
+      "entre_semana": 31.4,
+      "fin_de_semana": 40.7
+    },
+    "Lima → Tacna": {
+      "entre_semana": 30.5,
+      "fin_de_semana": 39.5
+    },
+    "Lima → Tarapoto": {
+      "entre_semana": 35.5,
+      "fin_de_semana": 45.3
+    },
+    "Lima → Trujillo": {
+      "entre_semana": 19.7,
+      "fin_de_semana": 29.1
+    },
+    "Lima → Tumbes": {
+      "entre_semana": 31.6,
+      "fin_de_semana": 40.8
+    }
+  }
+}

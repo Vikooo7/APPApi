@@ -373,34 +373,64 @@ rutasPagos.get('/liquidaciones', async (req, res, next) => {
 });
 
 /**
- * POST /api/liquidaciones/calcular (operador o administrador) → una liquidación CALCULADA por remitente
- * con lo confirmado hasta ahora. Antes se verifican con el banco los cobros pendientes.
+ * Corte de liquidación: verifica con el banco los cobros pendientes y crea una liquidación CALCULADA por
+ * remitente con lo confirmado hasta ahora. La usan el operador (botón) y el cron de martes y viernes.
+ * Nunca transfiere: eso lo aprueba el administrador (RF-O04).
  */
+async function calcularLiquidaciones(banco) {
+  await verificarPendientes(banco);
+  return transaccion(async (bd) => {
+    await bd.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['liquidaciones']);
+    const periodo = new Date().toISOString().slice(0, 16).replace('T', ' '); // corte con fecha y hora
+    const resultado = [];
+    for (const p of await pendientePorRemitente(bd)) {
+      if (p.neto <= 0) continue; // sin saldo a favor no hay nada que transferir
+      const { rows } = await bd.query(
+        `INSERT INTO liquidaciones (remitente_id, periodo, recaudado, costo_envios, neto, cobros_incluidos, cuenta_destino)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+        [p.remitenteId, periodo, p.recaudado, p.costoEnvios, p.neto, p.cobros, p.cuentaBanco]
+      );
+      await bd.query(
+        `UPDATE cobros c SET liquidacion_id = $1 FROM envios e
+         WHERE e.id = c.envio_id AND e.usuario_id = $2 AND c.tipo = 'contraentrega' AND c.estado = 'CONFIRMADO' AND c.liquidacion_id IS NULL`,
+        [rows[0].id, p.remitenteId]
+      );
+      resultado.push(liquidacionAJson({ ...rows[0], remitente: p.remitente }));
+    }
+    return resultado;
+  });
+}
+
+/** POST /api/liquidaciones/calcular (operador o administrador) → corte manual. */
 rutasPagos.post('/liquidaciones/calcular', async (req, res, next) => {
   try {
     if (!esOperacion(req)) throw error(403, 'SIN_PERMISO', 'Solo la operación calcula liquidaciones.');
-    await verificarPendientes(crearClienteBanco(req));
-    const creadas = await transaccion(async (bd) => {
-      await bd.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['liquidaciones']);
-      const periodo = new Date().toISOString().slice(0, 16).replace('T', ' '); // corte con fecha y hora
-      const resultado = [];
-      for (const p of await pendientePorRemitente(bd)) {
-        if (p.neto <= 0) continue; // sin saldo a favor no hay nada que transferir
-        const { rows } = await bd.query(
-          `INSERT INTO liquidaciones (remitente_id, periodo, recaudado, costo_envios, neto, cobros_incluidos, cuenta_destino)
-           VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-          [p.remitenteId, periodo, p.recaudado, p.costoEnvios, p.neto, p.cobros, p.cuentaBanco]
-        );
-        await bd.query(
-          `UPDATE cobros c SET liquidacion_id = $1 FROM envios e
-           WHERE e.id = c.envio_id AND e.usuario_id = $2 AND c.tipo = 'contraentrega' AND c.estado = 'CONFIRMADO' AND c.liquidacion_id IS NULL`,
-          [rows[0].id, p.remitenteId]
-        );
-        resultado.push(liquidacionAJson({ ...rows[0], remitente: p.remitente }));
-      }
-      return resultado;
-    });
-    res.status(201).json({ datos: creadas });
+    res.status(201).json({ datos: await calcularLiquidaciones(crearClienteBanco(req)) });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** El cron de Vercel envía "Authorization: Bearer <CRON_SECRET>". Se compara en tiempo constante. */
+function esLlamadaDelCron(req) {
+  const secreto = process.env.CRON_SECRET;
+  if (!secreto) throw error(503, 'CRON_NO_CONFIGURADO', 'Falta la variable CRON_SECRET en el servidor.');
+  const esperado = Buffer.from(`Bearer ${secreto}`);
+  const recibido = Buffer.from(req.get('authorization') || '');
+  return recibido.length === esperado.length && crypto.timingSafeEqual(recibido, esperado);
+}
+
+/**
+ * GET /api/cron/liquidaciones → corte automático de martes y viernes (RF-R05, HU-R03).
+ * Lo llama Vercel según vercel.json ("crons"); deja las liquidaciones CALCULADAS para que el administrador
+ * las revise y apruebe en la App Admin.
+ */
+rutasPagos.get('/cron/liquidaciones', async (req, res, next) => {
+  try {
+    if (!esLlamadaDelCron(req)) throw error(401, 'NO_AUTORIZADO', 'Solo el cron de Vercel puede llamar aquí.');
+    const creadas = await calcularLiquidaciones(crearClienteBanco(req));
+    console.log(`Cron de liquidaciones: ${creadas.length} calculadas`);
+    res.json({ calculadas: creadas.length, datos: creadas });
   } catch (e) {
     next(e);
   }

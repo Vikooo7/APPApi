@@ -2,3 +2,8 @@ node_modules
 .env
 .env.*
 .vercel
+
+# Entorno de Python del notebook de ML (se recrea con pip; ver ml/README.md)
+ml/.venv
+__pycache__
+.ipynb_checkpoints
