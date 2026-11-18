@@ -1,12 +1,12 @@
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/1.0.0/schema.json",
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
   "name": "confirmacion",
   "position": {
     "x": 437,
     "y": 365,
     "z": 4,
-    "width": 405,
     "height": 345,
+    "width": 405,
     "tabOrder": 4
   },
   "visual": {
@@ -28,6 +28,7 @@
               },
               "queryRef": "fact_intento.confirmacion",
               "nativeQueryRef": "confirmacion",
+              "active": true,
               "displayName": "Confirmación"
             }
           ]
@@ -52,7 +53,6 @@
         }
       }
     },
-    "drillFilterOtherVisuals": true,
     "visualContainerObjects": {
       "title": [
         {
@@ -74,6 +74,7 @@
           }
         }
       ]
-    }
+    },
+    "drillFilterOtherVisuals": true
   }
 }

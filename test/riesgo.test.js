@@ -44,6 +44,18 @@ test('confirmar el horario baja el riesgo; Oriente, 8 h y fallas previas lo sube
   assert.ok(sinConfirmar.factores.includes('El destinatario ya falló otras entregas'));
 });
 
+test('tres niveles como en la ficha: el medio es la mitad del alto', () => {
+  const { nivelDe, UMBRAL_ALTO, UMBRAL_MEDIO } = require('../src/ml/riesgo');
+  assert.equal(UMBRAL_ALTO, MODELO.umbral_riesgo_alto);
+  assert.ok(Math.abs(UMBRAL_MEDIO - UMBRAL_ALTO / 2) < 0.001);
+  assert.equal(nivelDe(UMBRAL_ALTO), 'alto');
+  assert.equal(nivelDe(UMBRAL_ALTO - 0.001), 'medio');
+  assert.equal(nivelDe(UMBRAL_MEDIO), 'medio');
+  assert.equal(nivelDe(UMBRAL_MEDIO - 0.001), 'bajo');
+  const r = evaluar({ ...base, zona: 'Oriente', franja: 8, fallasDestinatario: 2 });
+  assert.equal(r.riesgoAlto, r.nivel === 'alto');
+});
+
 test('la franja sale del orden de la parada: 5 paradas por franja de 2 h', () => {
   assert.equal(franjaPorOrden(1), 8);
   assert.equal(franjaPorOrden(5), 8);

@@ -2,3 +2,4 @@ expression CarpetaDatos = "V:\MIAPPapi\bi\datos\" meta [IsParameterQuery = true,
 	lineageTag: f0ed2b87-a248-51b4-9950-aa22b29740eb
 
 	annotation PBI_ResultType = Text
+

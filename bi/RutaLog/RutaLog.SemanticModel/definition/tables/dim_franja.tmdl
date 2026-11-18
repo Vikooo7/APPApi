@@ -3,8 +3,8 @@ table dim_franja
 
 	column franja_key
 		dataType: int64
-		formatString: 0
 		isHidden
+		formatString: 0
 		lineageTag: ba048fb6-84bc-5126-8991-fd1b35e64802
 		summarizeBy: none
 		sourceColumn: franja_key
@@ -32,3 +32,4 @@ table dim_franja
 				    Tipos
 
 	annotation PBI_ResultType = Table
+

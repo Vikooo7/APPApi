@@ -12,8 +12,8 @@ table fact_envio
 
 	column fecha_key
 		dataType: int64
-		formatString: 0
 		isHidden
+		formatString: 0
 		lineageTag: 8b29b7c3-bcdc-5f9c-945e-7a950a81b42a
 		summarizeBy: none
 		sourceColumn: fecha_key
@@ -22,8 +22,8 @@ table fact_envio
 
 	column ruta_key
 		dataType: int64
-		formatString: 0
 		isHidden
+		formatString: 0
 		lineageTag: e884c88b-aba2-562e-bb02-febac38bb3c3
 		summarizeBy: none
 		sourceColumn: ruta_key
@@ -32,8 +32,8 @@ table fact_envio
 
 	column zona_key
 		dataType: int64
-		formatString: 0
 		isHidden
+		formatString: 0
 		lineageTag: 5cade6f1-8c50-5e05-bd93-66b092292e6d
 		summarizeBy: none
 		sourceColumn: zona_key
@@ -42,8 +42,8 @@ table fact_envio
 
 	column courier_key
 		dataType: int64
-		formatString: 0
 		isHidden
+		formatString: 0
 		lineageTag: a05db94f-ef9c-5310-85af-d1d22dff6d9e
 		summarizeBy: none
 		sourceColumn: courier_key
@@ -52,8 +52,8 @@ table fact_envio
 
 	column remitente_key
 		dataType: int64
-		formatString: 0
 		isHidden
+		formatString: 0
 		lineageTag: 5597ca4b-d999-5d04-90c8-2d7a800e052f
 		summarizeBy: none
 		sourceColumn: remitente_key
@@ -162,3 +162,4 @@ table fact_envio
 				    Tipos
 
 	annotation PBI_ResultType = Table
+

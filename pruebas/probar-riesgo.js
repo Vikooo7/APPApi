@@ -73,6 +73,22 @@ async function entrar(correo) {
     comprobar('con el horario confirmado el riesgo baja', despues.probabilidad < objetivo.probabilidad && despues.confirmacion.estado === 'CONFIRMADA', { antes: objetivo.probabilidad, despues: despues.probabilidad });
   }
 
+  console.log('Riesgo medio · aviso el mismo día (niveles de la ficha)');
+  const niveles = await llamar('GET', '/ml/riesgo-fallida?fecha=2026-11-21', operador);
+  const m = niveles.datos.modelo;
+  comprobar('tres niveles: alto ≥ umbral, medio ≥ la mitad, bajo debajo', niveles.datos.datos.every((d) =>
+    d.nivel === (d.probabilidad >= m.umbralRiesgoAlto ? 'alto' : d.probabilidad >= m.umbralRiesgoMedio ? 'medio' : 'bajo')), m);
+  comprobar('el resumen cuenta los de riesgo medio', niveles.datos.resumen.riesgoMedio === niveles.datos.datos.filter((d) => d.nivel === 'medio').length);
+  const medio = niveles.datos.datos.find((d) => d.nivel === 'medio' && !d.confirmacion.sinTelefono)
+    || niveles.datos.datos.find((d) => !d.confirmacion.sinTelefono);
+  if (medio) {
+    const aviso = await llamar('POST', `/envios/${medio.envio.id}/aviso-dia`, operador, { uuidOperacion: crypto.randomUUID() });
+    comprobar('el operador envía el aviso del día (SMS simulado)', aviso.http === 201 && /hoy entregamos/.test(aviso.datos.aviso.mensaje), aviso.datos);
+    const tras = (await llamar('GET', '/ml/riesgo-fallida?fecha=2026-11-21', operador)).datos.datos.find((d) => d.envio.id === medio.envio.id);
+    comprobar('queda registrado cuándo se avisó', Boolean(tras.confirmacion.avisoDiaEn));
+    comprobar('el remitente no puede enviarlo (403)', (await llamar('POST', `/envios/${medio.envio.id}/aviso-dia`, cliente, { uuidOperacion: crypto.randomUUID() })).http === 403);
+  }
+
   console.log('ML-03 · cuántos couriers programar');
   comprobar('el remitente no ve el pronóstico (403)', (await llamar('GET', '/ml/pronostico-volumen', cliente)).http === 403);
   const pv = await llamar('GET', '/ml/pronostico-volumen?fecha=2026-11-19', operador);

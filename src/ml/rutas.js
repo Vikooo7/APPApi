@@ -75,7 +75,9 @@ rutasMl.get('/ml/riesgo-fallida', requiereSesion, soloOperacion, async (req, res
             estado: e.confirmacion_estado ?? null,
             pedidaEn: e.confirmacion_pedida_en ?? null,
             confirmadaEn: e.confirmado_en ?? null,
-            sinTelefono: !e.destinatario_telefono
+            sinTelefono: !e.destinatario_telefono,
+            // Riesgo medio: aviso por notificación el mismo día (ficha).
+            avisoDiaEn: e.aviso_dia_en ?? null
           }
         };
       })
@@ -87,7 +89,9 @@ rutasMl.get('/ml/riesgo-fallida', requiereSesion, soloOperacion, async (req, res
       resumen: {
         entregas: datos.length,
         riesgoAlto: datos.filter((d) => d.riesgoAlto).length,
-        confirmacionPedida: datos.filter((d) => d.riesgoAlto && d.confirmacion.estado).length
+        riesgoMedio: datos.filter((d) => d.nivel === 'medio').length,
+        confirmacionPedida: datos.filter((d) => d.riesgoAlto && d.confirmacion.estado).length,
+        avisoDiaEnviado: datos.filter((d) => d.nivel === 'medio' && d.confirmacion.avisoDiaEn).length
       },
       datos
     });
@@ -165,6 +169,32 @@ rutasMl.post('/envios/:id/confirmacion', requiereSesion, soloOperacion, (req, re
       [envio.id]
     );
     return { estado: 201, cuerpo: { ...confirmacionAJson(rows[0]), aviso: { canal: 'sms', destino, mensaje } }, idEnvio: envio.id };
+  });
+});
+
+/**
+ * POST /api/envios/:id/aviso-dia { uuidOperacion } (operación) → riesgo medio: aviso por notificación el mismo
+ * día (SMS simulado) de que la entrega es hoy, para que el destinatario esté atento. No pide respuesta.
+ */
+rutasMl.post('/envios/:id/aviso-dia', requiereSesion, soloOperacion, (req, res, next) => {
+  ejecutarUnaVez(req, res, next, 'AVISO_DIA', async (bd) => {
+    const envio = await obtenerParaEditar(bd, req);
+    validarActivo(envio);
+    if (!envio.destinatario_telefono) {
+      throw error(422, 'SIN_TELEFONO', 'El envío no tiene celular del destinatario: no se le puede avisar.');
+    }
+    const mensaje = `RutaLog: hoy entregamos tu envío ${envio.numero_guia}. Te esperamos en la dirección registrada; si no estarás, responde este mensaje.`;
+    const destino = enmascarar(envio.destinatario_telefono);
+    await bd.query(
+      "INSERT INTO avisos (envio_id, motivo, canal, destino, mensaje) VALUES ($1, 'aviso_dia', 'sms', $2, $3)",
+      [envio.id, destino, mensaje]
+    );
+    const { rows } = await bd.query('UPDATE envios SET aviso_dia_en = NOW() WHERE id = $1 RETURNING id, numero_guia, aviso_dia_en', [envio.id]);
+    return {
+      estado: 201,
+      cuerpo: { envioId: rows[0].id, numeroGuia: rows[0].numero_guia, estado: 'AVISO_DIA', avisoDiaEn: rows[0].aviso_dia_en, aviso: { canal: 'sms', destino, mensaje } },
+      idEnvio: envio.id
+    };
   });
 });
 

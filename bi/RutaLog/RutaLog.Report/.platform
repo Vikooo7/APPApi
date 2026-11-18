@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Report",
+    "displayName": "RutaLog"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "40b0adb0-c4f6-4769-b655-179a75ddd383"
+  }
+}

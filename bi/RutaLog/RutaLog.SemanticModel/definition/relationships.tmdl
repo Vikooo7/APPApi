@@ -50,3 +50,4 @@ relationship 5d704471-df0d-5753-b348-bcb333094e7f
 relationship 47b918ad-3704-5406-bdfe-ff4df85b5358
 	fromColumn: fact_recaudo.remitente_key
 	toColumn: dim_remitente.remitente_key
+

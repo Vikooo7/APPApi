@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "SemanticModel",
+    "displayName": "RutaLog"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "7ffea7e7-25f6-4602-b19a-613718656d03"
+  }
+}

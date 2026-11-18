@@ -3,8 +3,8 @@ table dim_ruta
 
 	column ruta_key
 		dataType: int64
-		formatString: 0
 		isHidden
+		formatString: 0
 		lineageTag: 04d8521d-0915-5e59-893d-007fcd77e79a
 		summarizeBy: none
 		sourceColumn: ruta_key
@@ -65,3 +65,4 @@ table dim_ruta
 				    Tipos
 
 	annotation PBI_ResultType = Table
+

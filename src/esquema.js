@@ -361,6 +361,17 @@ const MIGRACIONES = [
          CHECK (motivo IN ('entrega_fallida', 'devolucion', 'confirmacion'))`
     ],
     datos: async () => {}
+  },
+  {
+    version: 7,
+    nombre: 'ML-01 riesgo medio: aviso por notificación el mismo día',
+    pasos: [
+      'ALTER TABLE envios ADD COLUMN IF NOT EXISTS aviso_dia_en TIMESTAMPTZ',
+      'ALTER TABLE avisos DROP CONSTRAINT IF EXISTS avisos_motivo_check',
+      `ALTER TABLE avisos ADD CONSTRAINT avisos_motivo_check
+         CHECK (motivo IN ('entrega_fallida', 'devolucion', 'confirmacion', 'aviso_dia'))`
+    ],
+    datos: async () => {}
   }
 ];
 

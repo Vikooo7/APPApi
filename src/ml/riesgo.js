@@ -49,7 +49,19 @@ function variables(e) {
   return x;
 }
 
-/** Probabilidad de falla, si es riesgo alto y los 3 factores que más la suben (para explicarla en la App Admin). */
+// Niveles como en la ficha (alto 0.50 · medio 0.25 = la mitad · bajo). El umbral alto es el que eligió el notebook
+// (F2 con a lo más 30 % marcadas): con ~7 % de fallidas, 0.50 casi nunca se alcanza. El medio es la mitad del alto.
+const UMBRAL_ALTO = MODELO.umbral_riesgo_alto;
+const UMBRAL_MEDIO = Math.round((MODELO.umbral_riesgo_alto / 2) * 1000) / 1000;
+
+/** alto → pedir confirmación del horario · medio → aviso por notificación el mismo día · bajo → sin acción. */
+function nivelDe(probabilidad) {
+  if (probabilidad >= UMBRAL_ALTO) return 'alto';
+  if (probabilidad >= UMBRAL_MEDIO) return 'medio';
+  return 'bajo';
+}
+
+/** Probabilidad de falla, su nivel y los 3 factores que más la suben (para explicarla en la App Admin). */
 function evaluar(entrega) {
   const x = variables(entrega);
   let z = MODELO.intercepto;
@@ -62,7 +74,8 @@ function evaluar(entrega) {
   const probabilidad = 1 / (1 + Math.exp(-z));
   return {
     probabilidad: Math.round(probabilidad * 1000) / 1000,
-    riesgoAlto: probabilidad >= MODELO.umbral_riesgo_alto,
+    nivel: nivelDe(probabilidad),
+    riesgoAlto: probabilidad >= UMBRAL_ALTO,
     factores: aportes.sort((a, b) => b.aporte - a.aporte).slice(0, 3).map((a) => a.texto)
   };
 }
@@ -70,8 +83,9 @@ function evaluar(entrega) {
 const infoModelo = () => ({
   nombre: MODELO.modelo,
   entrenadoCon: MODELO.entrenado_con,
-  umbralRiesgoAlto: MODELO.umbral_riesgo_alto,
+  umbralRiesgoAlto: UMBRAL_ALTO,
+  umbralRiesgoMedio: UMBRAL_MEDIO,
   metricasPrueba: MODELO.metricas_prueba
 });
 
-module.exports = { evaluar, variables, franjaPorOrden, infoModelo, MODELO };
+module.exports = { evaluar, nivelDe, variables, franjaPorOrden, infoModelo, MODELO, UMBRAL_ALTO, UMBRAL_MEDIO };

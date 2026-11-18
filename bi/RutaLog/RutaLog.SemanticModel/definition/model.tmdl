@@ -10,6 +10,8 @@ annotation PBI_QueryOrder = ["CarpetaDatos", "dim_fecha", "dim_zona", "dim_ruta"
 
 annotation __PBI_TimeIntelligenceEnabled = 0
 
+annotation PBI_ProTooling = ["DevMode"]
+
 ref table dim_fecha
 ref table dim_zona
 ref table dim_ruta
@@ -21,3 +23,6 @@ ref table fact_envio
 ref table fact_intento
 ref table fact_recaudo
 ref table Medidas
+
+ref cultureInfo en-US
+

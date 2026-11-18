@@ -1,0 +1,165 @@
+{
+  "version": "1.1.0",
+  "diagrams": [
+    {
+      "ordinal": 0,
+      "scrollPosition": {
+        "x": 0,
+        "y": 0
+      },
+      "nodes": [
+        {
+          "location": {
+            "x": 1165.9532257351516,
+            "y": 584.76085741568352
+          },
+          "nodeIndex": "Medidas",
+          "nodeLineageTag": "776fee55-2343-5041-9920-4fdac28f38a1",
+          "size": {
+            "height": 300,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 358.51949544869672,
+            "y": 360.76135505031607
+          },
+          "nodeIndex": "dim_courier",
+          "nodeLineageTag": "b457793d-ef77-55f2-bb0a-3683e790e726",
+          "size": {
+            "height": 152,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 619.3751741294775,
+            "y": 565.65742827839358
+          },
+          "nodeIndex": "dim_fecha",
+          "nodeLineageTag": "69ecb30a-3292-5d65-9dd0-1d9325038154",
+          "size": {
+            "height": 300,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 931.95322573515136,
+            "y": 83.02692526886176
+          },
+          "nodeIndex": "dim_franja",
+          "nodeLineageTag": "a6fafc87-efae-59a5-a987-da541f5231d7",
+          "size": {
+            "height": 128,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 644.85581830749857,
+            "y": -50
+          },
+          "nodeIndex": "dim_motivo_falla",
+          "nodeLineageTag": "efb7d34b-0519-5569-a977-b1e88e74f80b",
+          "size": {
+            "height": 128,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 185.01877625741361,
+            "y": 991.69251641555627
+          },
+          "nodeIndex": "dim_remitente",
+          "nodeLineageTag": "6f9802f5-6e81-53f8-a855-807f858cd87d",
+          "size": {
+            "height": 152,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 278.84169432374176,
+            "y": 1195.521714831367
+          },
+          "nodeIndex": "dim_ruta",
+          "nodeLineageTag": "4900d469-9954-59dd-9093-b03ff606bc44",
+          "size": {
+            "height": 224,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 50,
+            "y": 201.13021730059268
+          },
+          "nodeIndex": "dim_zona",
+          "nodeLineageTag": "2dc1feb7-80ca-5398-a67a-b660467004c6",
+          "size": {
+            "height": 128,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 257.3101453883599,
+            "y": 638.75848695005539
+          },
+          "nodeIndex": "fact_envio",
+          "nodeLineageTag": "b9a42fc4-8e47-58b9-90c0-a1d8b4313abe",
+          "size": {
+            "height": 300,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 644.88997614014318,
+            "y": 197.16116264541677
+          },
+          "nodeIndex": "fact_intento",
+          "nodeLineageTag": "1c491314-4457-5e0f-b701-80aeafbe77f0",
+          "size": {
+            "height": 300,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 565.88010592423223,
+            "y": 919.22025299950076
+          },
+          "nodeIndex": "fact_recaudo",
+          "nodeLineageTag": "639420b3-c7a3-593f-8377-eb65711160b8",
+          "size": {
+            "height": 272,
+            "width": 234
+          },
+          "zIndex": 0
+        }
+      ],
+      "name": "Todas las tablas",
+      "zoomValue": 100,
+      "pinKeyFieldsToTop": false,
+      "showExtraHeaderInfo": false,
+      "hideKeyFieldsWhenCollapsed": false,
+      "tablesLocked": false
+    }
+  ],
+  "selectedDiagram": "Todas las tablas",
+  "defaultDiagram": "Todas las tablas"
+}

@@ -1,12 +1,12 @@
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/1.0.0/schema.json",
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
   "name": "recaudoSemana",
   "position": {
     "x": 795,
     "y": 20,
     "z": 2,
-    "width": 465,
     "height": 335,
+    "width": 465,
     "tabOrder": 2
   },
   "visual": {
@@ -28,6 +28,7 @@
               },
               "queryRef": "dim_fecha.semana_label",
               "nativeQueryRef": "semana_label",
+              "active": true,
               "displayName": "Semana"
             }
           ]
@@ -70,7 +71,6 @@
         "isDefaultSort": true
       }
     },
-    "drillFilterOtherVisuals": true,
     "visualContainerObjects": {
       "title": [
         {
@@ -92,6 +92,7 @@
           }
         }
       ]
-    }
+    },
+    "drillFilterOtherVisuals": true
   }
 }

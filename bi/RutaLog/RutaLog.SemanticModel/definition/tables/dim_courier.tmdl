@@ -3,8 +3,8 @@ table dim_courier
 
 	column courier_key
 		dataType: int64
-		formatString: 0
 		isHidden
+		formatString: 0
 		lineageTag: f7063101-c738-519e-a576-0111186bbdc9
 		summarizeBy: none
 		sourceColumn: courier_key
@@ -39,3 +39,4 @@ table dim_courier
 				    Tipos
 
 	annotation PBI_ResultType = Table
+

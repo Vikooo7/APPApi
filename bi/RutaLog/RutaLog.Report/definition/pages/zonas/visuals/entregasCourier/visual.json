@@ -1,12 +1,12 @@
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/1.0.0/schema.json",
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
   "name": "entregasCourier",
   "position": {
     "x": 437,
     "y": 20,
     "z": 2,
-    "width": 405,
     "height": 330,
+    "width": 405,
     "tabOrder": 2
   },
   "visual": {
@@ -28,6 +28,7 @@
               },
               "queryRef": "dim_courier.courier",
               "nativeQueryRef": "courier",
+              "active": true,
               "displayName": "Courier"
             }
           ]
@@ -52,7 +53,6 @@
         }
       }
     },
-    "drillFilterOtherVisuals": true,
     "visualContainerObjects": {
       "title": [
         {
@@ -74,6 +74,7 @@
           }
         }
       ]
-    }
+    },
+    "drillFilterOtherVisuals": true
   }
 }

@@ -3,8 +3,8 @@ table dim_motivo_falla
 
 	column motivo_key
 		dataType: int64
-		formatString: 0
 		isHidden
+		formatString: 0
 		lineageTag: aac46756-e52b-5428-a936-fa6c34f904bd
 		summarizeBy: none
 		sourceColumn: motivo_key
@@ -32,3 +32,4 @@ table dim_motivo_falla
 				    Tipos
 
 	annotation PBI_ResultType = Table
+

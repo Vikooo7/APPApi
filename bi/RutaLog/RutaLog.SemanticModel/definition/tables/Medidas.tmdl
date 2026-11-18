@@ -1,7 +1,7 @@
 table Medidas
 	lineageTag: 776fee55-2343-5041-9920-4fdac28f38a1
 
-	measure 'Envíos' = COUNTROWS(fact_envio)
+	measure Envíos = COUNTROWS(fact_envio)
 		formatString: #,##0
 		displayFolder: Entregas
 		lineageTag: 9e3d4d63-a3ce-5fc2-ba5a-9f0404c875a8
@@ -229,3 +229,4 @@ table Medidas
 				    Origen
 
 	annotation PBI_ResultType = Table
+

@@ -3,8 +3,8 @@ table dim_zona
 
 	column zona_key
 		dataType: int64
-		formatString: 0
 		isHidden
+		formatString: 0
 		lineageTag: dd043c3f-d729-5e60-8c19-b5f7696e5f4b
 		summarizeBy: none
 		sourceColumn: zona_key
@@ -32,3 +32,4 @@ table dim_zona
 				    Tipos
 
 	annotation PBI_ResultType = Table
+

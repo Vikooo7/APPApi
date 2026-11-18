@@ -1,12 +1,12 @@
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/1.0.0/schema.json",
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
   "name": "confirmaronSemana",
   "position": {
     "x": 855,
     "y": 365,
     "z": 5,
-    "width": 405,
     "height": 345,
+    "width": 405,
     "tabOrder": 5
   },
   "visual": {
@@ -28,6 +28,7 @@
               },
               "queryRef": "dim_fecha.semana_label",
               "nativeQueryRef": "semana_label",
+              "active": true,
               "displayName": "Semana"
             }
           ]
@@ -70,7 +71,6 @@
         "isDefaultSort": true
       }
     },
-    "drillFilterOtherVisuals": true,
     "visualContainerObjects": {
       "title": [
         {
@@ -92,6 +92,7 @@
           }
         }
       ]
-    }
+    },
+    "drillFilterOtherVisuals": true
   }
 }

@@ -21,8 +21,8 @@ table fact_intento
 
 	column fecha_key
 		dataType: int64
-		formatString: 0
 		isHidden
+		formatString: 0
 		lineageTag: 736f0fe3-7d09-5e80-a103-5d59ce6a08df
 		summarizeBy: none
 		sourceColumn: fecha_key
@@ -31,8 +31,8 @@ table fact_intento
 
 	column franja_key
 		dataType: int64
-		formatString: 0
 		isHidden
+		formatString: 0
 		lineageTag: 4bc874a0-f329-5ab3-b668-cc64bdddde3a
 		summarizeBy: none
 		sourceColumn: franja_key
@@ -41,8 +41,8 @@ table fact_intento
 
 	column zona_key
 		dataType: int64
-		formatString: 0
 		isHidden
+		formatString: 0
 		lineageTag: 8a74f8f3-b921-592a-9f18-5de58455dc8d
 		summarizeBy: none
 		sourceColumn: zona_key
@@ -51,8 +51,8 @@ table fact_intento
 
 	column courier_key
 		dataType: int64
-		formatString: 0
 		isHidden
+		formatString: 0
 		lineageTag: bec0b9de-028e-5369-a813-633151f7d07d
 		summarizeBy: none
 		sourceColumn: courier_key
@@ -61,8 +61,8 @@ table fact_intento
 
 	column motivo_key
 		dataType: int64
-		formatString: 0
 		isHidden
+		formatString: 0
 		lineageTag: 146cd9e0-0e26-527a-a78d-99669ebb0ec9
 		summarizeBy: none
 		sourceColumn: motivo_key
@@ -134,3 +134,4 @@ table fact_intento
 				    Tipos
 
 	annotation PBI_ResultType = Table
+
