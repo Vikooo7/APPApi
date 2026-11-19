@@ -372,6 +372,20 @@ const MIGRACIONES = [
          CHECK (motivo IN ('entrega_fallida', 'devolucion', 'confirmacion', 'aviso_dia'))`
     ],
     datos: async () => {}
+  },
+  {
+    version: 8,
+    nombre: 'Notificaciones push: token de Firebase Cloud Messaging de cada celular',
+    pasos: [
+      `CREATE TABLE IF NOT EXISTS dispositivos (
+         token          TEXT PRIMARY KEY,
+         usuario_id     INTEGER NOT NULL REFERENCES usuarios (id),
+         app            TEXT NOT NULL CHECK (app IN ('cliente', 'admin', 'courier')),
+         actualizado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+       )`,
+      'CREATE INDEX IF NOT EXISTS dispositivos_usuario_idx ON dispositivos (usuario_id, app)'
+    ],
+    datos: async () => {}
   }
 ];
 

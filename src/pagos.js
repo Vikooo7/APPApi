@@ -7,6 +7,7 @@ const { requiereSesion, error } = require('./auth');
 const { crearClienteBanco } = require('./clienteBanco');
 const { ejecutarUnaVez, esOperacion, obtenerParaEditar, leerFechaEvento } = require('./envios');
 const { leerImagen, guardarArchivo } = require('./archivos');
+const { avisoDeEstado, enviarAvisos } = require('./push');
 
 // Cuenta de recaudo de RutaLog en Banco Andino: ahí deben llegar todos los pagos QR.
 const CUENTA_RUTALOG = process.env.RUTALOG_CUENTA_BANCO || '191-1000001-0';
@@ -69,7 +70,8 @@ async function confirmarConBanco(banco, cobro, nro) {
   if (redondear(op.monto) !== redondear(cobro.monto)) {
     return rechazar(cobro, `La operación ${nro} es por S/ ${op.monto.toFixed(2)} y el cobro es por S/ ${Number(cobro.monto).toFixed(2)}.`);
   }
-  return transaccion(async (bd) => {
+  let recienConfirmado = false;
+  const resultado = await transaccion(async (bd) => {
     // Un mismo pago no puede confirmar dos cobros distintos.
     const usado = await bd.query('SELECT id FROM cobros WHERE nro_operacion_banco = $1 AND id <> $2', [op.nro, cobro.id]);
     if (usado.rows[0]) {
@@ -92,8 +94,15 @@ async function confirmarConBanco(banco, cobro, nro) {
         [cobro.envio_id]
       );
     }
+    recienConfirmado = Boolean(rows[0]);
     return actualizado;
   });
+  // Push al remitente: el destinatario pagó el contraentrega (solo la primera vez que se confirma).
+  if (recienConfirmado && resultado.tipo === 'contraentrega') {
+    const { rows } = await consulta('SELECT * FROM envios WHERE id = $1', [resultado.envio_id]);
+    if (rows[0]) await enviarAvisos([avisoDeEstado(rows[0], 'cobrado', { monto: resultado.monto, nroOperacion: resultado.nro_operacion_banco })]);
+  }
+  return resultado;
 }
 
 /**
@@ -479,6 +488,13 @@ rutasPagos.post('/liquidaciones/:id/aprobar', async (req, res, next) => {
       );
       return r[0];
     });
+    // RF-R05: "recibo una notificación con el número de operación del banco", al instante.
+    await enviarAvisos([{
+      usuarioId: actualizada.remitente_id,
+      titulo: 'Liquidación recibida',
+      cuerpo: `Banco Andino transfirió S/ ${Number(actualizada.neto).toFixed(2)} a tu cuenta · operación ${actualizada.nro_operacion_banco}.`,
+      datos: { tipo: 'liquidacion', liquidacion: actualizada.id }
+    }]);
     res.json(liquidacionAJson({ ...actualizada, remitente: liq.remitente }));
   } catch (e) {
     next(e);

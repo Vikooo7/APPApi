@@ -11,6 +11,7 @@ const { rutasBanco } = require('./banco/rutas');
 const { rutasPagos } = require('./pagos');
 const { rutasMl } = require('./ml/rutas');
 const { rutasTablero } = require('./tablero');
+const { rutasDispositivos } = require('./dispositivos');
 
 const app = express();
 // Vercel atiende por HTTPS detrás de un proxy: así req.protocol dice "https" (lo usa el cliente del banco).
@@ -86,6 +87,9 @@ app.use('/api', rutasMl);
 
 // RF-O05: tablero de la operación con comparación semanal.
 app.use('/api', rutasTablero);
+
+// Notificaciones push: celulares registrados para recibir los avisos en tiempo real.
+app.use('/api', rutasDispositivos);
 
 app.use((req, res, next) => {
   next(error(404, 'RUTA_NO_ENCONTRADA', `No existe ${req.method} ${req.path}`));

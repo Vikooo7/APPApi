@@ -5,6 +5,7 @@ const { error, requiereSesion } = require('./auth');
 const { leerImagen, guardarArchivo } = require('./archivos');
 const { baseDeZona, distanciaKm, ordenarParadas, longitudRecorrido } = require('./rutas-optimas');
 const { evaluar, franjaPorOrden } = require('./ml/riesgo');
+const { avisoDeEstado } = require('./push');
 const {
   aJson,
   ejecutarUnaVez,
@@ -272,7 +273,8 @@ rutasCourier.post('/envios/:id/eventos', conSesionDeCourier, (req, res, next) =>
     );
     // RN-06: el evento lleva la hora real en que ocurrió, aunque llegue después.
     await registrarEvento(bd, envio.id, estado, req.usuario.id, fecha, latitud, longitud);
-    return { estado: 200, cuerpo: aJson(rows[0]), idEnvio: envio.id };
+    // Push al remitente en tiempo real: recogido, en camino o salió a reparto.
+    return { estado: 200, cuerpo: aJson(rows[0]), idEnvio: envio.id, avisos: [avisoDeEstado(rows[0], estado, { fecha })] };
   });
 });
 
@@ -332,7 +334,7 @@ rutasCourier.post('/envios/:id/evidencia', conSesionDeCourier, (req, res, next) 
       [envio.id]
     );
     await registrarEvento(bd, envio.id, 'entregado', req.usuario.id, fecha, latitud, longitud);
-    return { estado: 201, cuerpo: aJson(rows[0]), idEnvio: envio.id };
+    return { estado: 201, cuerpo: aJson(rows[0]), idEnvio: envio.id, avisos: [avisoDeEstado(rows[0], 'entregado', { fecha, recibeNombre })] };
   });
 });
 

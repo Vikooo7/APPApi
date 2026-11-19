@@ -5,6 +5,7 @@ const { generarGuia } = require('./esquema');
 const { coordenadasEnvio } = require('./rutas-optimas');
 const { leerImagen, guardarArchivo } = require('./archivos');
 const { estimarEntrega } = require('./ml/pronosticos');
+const { avisoDeEstado, enviarAvisos } = require('./push');
 
 const rutasEnvios = express.Router();
 
@@ -217,14 +218,17 @@ async function ejecutarUnaVez(req, res, next, tipo, fn) {
         return { estado: previa.rows[0].estado_http, cuerpo: { ...previa.rows[0].respuesta, duplicado: true } };
       }
 
-      const { estado, cuerpo, idEnvio } = await fn(bd);
+      const { estado, cuerpo, idEnvio, avisos } = await fn(bd);
       await bd.query(
         `INSERT INTO operaciones_procesadas (uuid_operacion, usuario_id, tipo, id_envio, estado_http, respuesta)
          VALUES ($1, $2, $3, $4, $5, $6)`,
         [uuidOperacion, req.usuario.id, tipo, idEnvio || null, estado, JSON.stringify(cuerpo)]
       );
-      return { estado, cuerpo };
+      return { estado, cuerpo, avisos };
     });
+    // Notificaciones push al remitente: solo después de guardar (si la transacción falla, no se avisa nada).
+    // Un reintento con el mismo UUID devuelve la respuesta guardada y no vuelve a avisar.
+    await enviarAvisos(resultado.avisos);
     res.status(resultado.estado).json(resultado.cuerpo);
   } catch (e) {
     next(e);
@@ -757,7 +761,9 @@ rutasEnvios.post('/:id/fallido', (req, res, next) => {
     return {
       estado: 201,
       cuerpo: { ...aJson(actualizado.rows[0]), avisoDestinatario: aviso ? { canal: aviso.canal, destino: aviso.destino } : null },
-      idEnvio: envio.id
+      idEnvio: envio.id,
+      // Push al remitente: no se pudo entregar (o vuelve a él al tercer intento).
+      avisos: [avisoDeEstado(envio, estado === 'devuelto' ? 'devuelto' : 'fallido', { fecha, motivo, intento: numero })]
     };
   });
 });
@@ -799,7 +805,7 @@ rutasEnvios.post('/:id/reprogramar', (req, res, next) => {
       [courierId, etiqueta, envio.id]
     );
     await registrarEvento(bd, envio.id, 'reprogramado', req.usuario.id);
-    return { estado: 200, cuerpo: aJson(actualizado.rows[0]), idEnvio: envio.id };
+    return { estado: 200, cuerpo: aJson(actualizado.rows[0]), idEnvio: envio.id, avisos: [avisoDeEstado(envio, 'reprogramado')] };
   });
 });
 

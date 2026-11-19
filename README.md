@@ -56,6 +56,7 @@ Las apps nunca se conectan a la base: todo pasa por esta API, que valida la sesi
 | `POST` | `/api/envios/:id/confirmacion`, `.../confirmacion/confirmar` | Operación | Aviso previo: SMS simulado que pide confirmar el horario y registro de la respuesta |
 | `GET` | `/api/ml/pronostico-volumen?fecha=` | Operación | ML-03: envíos esperados por zona y cuántos couriers programar (30 paradas por courier) |
 | — | `GET /api/envios/:guia` → `estimacion` | Remitente | ML-02: fecha estimada de entrega (± MAE del modelo); `GET /api/courier/ruta` → `riesgo` por entrega (ML-01) |
+| `POST` / `DELETE` | `/api/dispositivos` | Cualquier sesión | Token de Firebase Cloud Messaging del celular: el servidor envía push en tiempo real al remitente cuando el courier recoge, saca a reparto, entrega, no puede entregar o cobra, y al transferir su liquidación. Necesita la variable `FIREBASE_SERVICE_ACCOUNT` (JSON de la cuenta de servicio, tal cual o en base64); sin ella, los avisos llegan al sincronizar |
 | `GET` | `/api/tablero?semana=` | Operación | RF-O05: los 6 indicadores de la ficha frente a la semana anterior, por courier y tendencia de 8 semanas |
 
 Reglas nuevas: un envío registrado desde la migración 5 queda `POR_PAGAR` y no se asigna al courier hasta que el banco confirma su pago (RF-R02). El courier recibe el QR de cada entrega contraentrega con la ruta, para mostrarlo sin señal. Un cobro rechazado libera su n.º de operación.
